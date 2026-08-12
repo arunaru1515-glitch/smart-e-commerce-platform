@@ -1,0 +1,457 @@
+{
+  "info": {
+    "name": "Smart E-Commerce Platform",
+    "description": "Assessment 3 - Smart E-Commerce Platform FastAPI API Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "refresh_token",
+      "value": ""
+    },
+    {
+      "key": "user_id",
+      "value": "2"
+    },
+    {
+      "key": "product_id",
+      "value": "1"
+    },
+    {
+      "key": "cart_id",
+      "value": "1"
+    },
+    {
+      "key": "auth0_token",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/register?name=Test%20User&email=testuser@gmail.com&password=Test%40123",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ],
+              "query": [
+                {
+                  "key": "name",
+                  "value": "Test User"
+                },
+                {
+                  "key": "email",
+                  "value": "testuser@gmail.com"
+                },
+                {
+                  "key": "password",
+                  "value": "Test@123"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "",
+                  "if (data.access_token) {",
+                  "    pm.collectionVariables.set('access_token', data.access_token);",
+                  "}",
+                  "",
+                  "if (data.refresh_token) {",
+                  "    pm.collectionVariables.set('refresh_token', data.refresh_token);",
+                  "}",
+                  "",
+                  "console.log('Access token saved');",
+                  "console.log('Refresh token saved');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/login?email=testuser@gmail.com&password=Test%40123",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ],
+              "query": [
+                {
+                  "key": "email",
+                  "value": "testuser@gmail.com"
+                },
+                {
+                  "key": "password",
+                  "value": "Test@123"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "",
+                  "if (data.access_token) {",
+                  "    pm.collectionVariables.set('access_token', data.access_token);",
+                  "}",
+                  "",
+                  "console.log('New access token saved');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{refresh_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Auth0 Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth0_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/auth0",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "auth0"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "Get All Products",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Single Product",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Product - Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products/?name=Laptop%20Pro&description=Smart%20E-Commerce%20Laptop&price=50000&stock=20&images=",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "name",
+                  "value": "Laptop Pro"
+                },
+                {
+                  "key": "description",
+                  "value": "Smart E-Commerce Laptop"
+                },
+                {
+                  "key": "price",
+                  "value": "50000"
+                },
+                {
+                  "key": "stock",
+                  "value": "20"
+                },
+                {
+                  "key": "images",
+                  "value": ""
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Product - Admin",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}?name=Updated%20Laptop%20Pro&description=Updated%20Smart%20Laptop&price=55000&stock=15&images=",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}"
+              ],
+              "query": [
+                {
+                  "key": "name",
+                  "value": "Updated Laptop Pro"
+                },
+                {
+                  "key": "description",
+                  "value": "Updated Smart Laptop"
+                },
+                {
+                  "key": "price",
+                  "value": "55000"
+                },
+                {
+                  "key": "stock",
+                  "value": "15"
+                },
+                {
+                  "key": "images",
+                  "value": ""
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Product - Admin",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cart",
+      "item": [
+        {
+          "name": "Add To Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cart/?user_id={{user_id}}&product_id={{product_id}}&quantity=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "{{user_id}}"
+                },
+                {
+                  "key": "product_id",
+                  "value": "{{product_id}}"
+                },
+                {
+                  "key": "quantity",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Cart",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cart/?user_id={{user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "{{user_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Remove From Cart",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cart/{{cart_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                "{{cart_id}}"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,485 @@
+/* =========================================
+   GLOBAL
+========================================= */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Arial,
+    sans-serif;
+
+  min-height: 100vh;
+
+  color: #1e293b;
+
+  background:
+    radial-gradient(circle at 10% 15%, #dbeafe 0%, transparent 32%),
+    radial-gradient(circle at 90% 85%, #e9d5ff 0%, transparent 32%),
+    linear-gradient(135deg, #f8fbff, #eef4ff 50%, #f8f5ff);
+}
+
+
+/* =========================================
+   MAIN CONTAINER
+========================================= */
+
+.auth-container {
+  min-height: 100vh;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  position: relative;
+
+  overflow: hidden;
+
+  padding: 40px;
+}
+
+
+/* =========================================
+   SUBTLE BACKGROUND SHAPES
+========================================= */
+
+.auth-container::before {
+  content: "";
+
+  position: absolute;
+
+  width: 380px;
+  height: 380px;
+
+  border-radius: 50%;
+
+  background: rgba(99, 102, 241, 0.08);
+
+  top: -170px;
+  left: -120px;
+
+  filter: blur(2px);
+}
+
+.auth-container::after {
+  content: "";
+
+  position: absolute;
+
+  width: 420px;
+  height: 420px;
+
+  border-radius: 50%;
+
+  background: rgba(14, 165, 233, 0.07);
+
+  bottom: -200px;
+  right: -150px;
+
+  filter: blur(2px);
+}
+
+
+/* =========================================
+   AUTH CARD
+========================================= */
+
+.auth-card {
+  width: 100%;
+
+  max-width: 500px;
+
+  position: relative;
+
+  z-index: 2;
+
+  padding: 48px 50px;
+
+  background: rgba(255, 255, 255, 0.92);
+
+  border: 1px solid rgba(226, 232, 240, 0.9);
+
+  border-radius: 20px;
+
+  box-shadow:
+    0 20px 50px rgba(30, 41, 59, 0.10),
+    0 4px 12px rgba(30, 41, 59, 0.05);
+
+  text-align: center;
+}
+
+
+/* =========================================
+   BRAND ICON
+========================================= */
+
+.auth-card::before {
+  content: "🛒";
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  width: 78px;
+  height: 78px;
+
+  margin: 0 auto 24px;
+
+  border-radius: 18px;
+
+  font-size: 34px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #eef2ff,
+      #e0f2fe
+    );
+
+  border: 1px solid #c7d2fe;
+
+  box-shadow:
+    0 8px 20px rgba(79, 70, 229, 0.12);
+}
+
+
+/* =========================================
+   TITLE
+========================================= */
+
+.auth-card h1 {
+  font-size: 34px;
+
+  font-weight: 800;
+
+  line-height: 1.15;
+
+  letter-spacing: -0.8px;
+
+  color: #172033;
+
+  margin-bottom: 12px;
+}
+
+
+/* =========================================
+   SUBTITLE
+========================================= */
+
+.subtitle {
+  color: #64748b;
+
+  font-size: 16px;
+
+  line-height: 1.6;
+
+  margin-bottom: 32px;
+}
+
+
+/* =========================================
+   BUTTON COMMON
+========================================= */
+
+.auth-card button {
+  width: 100%;
+
+  height: 54px;
+
+  border-radius: 10px;
+
+  margin-top: 14px;
+
+  padding: 0 20px;
+
+  font-size: 15px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+
+  position: relative;
+
+  overflow: hidden;
+}
+
+.auth-card button:hover {
+  transform: translateY(-2px);
+}
+
+
+/* =========================================
+   AUTH0 BUTTON
+========================================= */
+
+.login-button {
+  color: #ffffff;
+
+  background:
+    linear-gradient(
+      135deg,
+      #4f46e5,
+      #6366f1
+    );
+
+  border: 1px solid #4f46e5;
+
+  box-shadow:
+    0 6px 15px rgba(79, 70, 229, 0.22);
+}
+
+.login-button:hover {
+  background:
+    linear-gradient(
+      135deg,
+      #4338ca,
+      #4f46e5
+    );
+
+  box-shadow:
+    0 8px 20px rgba(79, 70, 229, 0.28);
+}
+
+
+/* =========================================
+   GOOGLE BUTTON
+========================================= */
+
+.google-button {
+  color: #334155;
+
+  background: #ffffff;
+
+  border: 1px solid #cbd5e1 !important;
+
+  box-shadow:
+    0 3px 8px rgba(15, 23, 42, 0.04);
+}
+
+.google-button:hover {
+  background: #f8fafc;
+
+  border-color: #94a3b8 !important;
+}
+
+
+/* =========================================
+   FACEBOOK BUTTON
+========================================= */
+
+.facebook-button {
+  color: #ffffff;
+
+  background:
+    linear-gradient(
+      135deg,
+      #1877f2,
+      #2563eb
+    );
+
+  border: 1px solid #1877f2;
+
+  box-shadow:
+    0 6px 15px rgba(37, 99, 235, 0.18);
+}
+
+.facebook-button:hover {
+  background:
+    linear-gradient(
+      135deg,
+      #166fe5,
+      #1d4ed8
+    );
+}
+
+
+/* =========================================
+   PROFILE
+========================================= */
+
+.profile {
+  margin-top: 15px;
+
+  margin-bottom: 25px;
+
+  padding: 26px;
+
+  border-radius: 14px;
+
+  background: #f8fafc;
+
+  border: 1px solid #e2e8f0;
+
+  text-align: center;
+}
+
+.profile h2 {
+  color: #172033;
+
+  font-size: 24px;
+
+  margin-bottom: 18px;
+}
+
+.profile p {
+  color: rgb(20, 88, 183);
+
+  font-size: 15px;
+
+  margin: 12px 0;
+
+  line-height: 1.5;
+
+  word-break: break-word;
+}
+
+.profile strong {
+  color: #1e293b;
+}
+
+
+/* =========================================
+   PROFILE IMAGE
+========================================= */
+
+.profile-image {
+  width: 100px;
+
+  height: 100px;
+
+  object-fit: cover;
+
+  border-radius: 50%;
+
+  margin-bottom: 16px;
+
+  border: 4px solid #e0e7ff;
+
+  box-shadow:
+    0 6px 16px rgba(79, 70, 229, 0.12);
+}
+
+
+/* =========================================
+   FASTAPI BUTTON
+========================================= */
+
+.backend-button {
+  color: #ffffff;
+
+  background:
+    linear-gradient(
+      135deg,
+      #059669,
+      #10b981
+    );
+
+  border: 1px solid #059669;
+
+  box-shadow:
+    0 6px 15px rgba(5, 150, 105, 0.16);
+}
+
+.backend-button:hover {
+  background:
+    linear-gradient(
+      135deg,
+      #047857,
+      #059669
+    );
+}
+
+
+/* =========================================
+   LOGOUT BUTTON
+========================================= */
+
+.logout-button {
+  color: #ffffff;
+
+  background:
+    linear-gradient(
+      135deg,
+      #ef4444,
+      #dc2626
+    );
+
+  border: 1px solid #dc2626;
+
+  box-shadow:
+    0 6px 15px rgba(220, 38, 38, 0.16);
+}
+
+.logout-button:hover {
+  background:
+    linear-gradient(
+      135deg,
+      #dc2626,
+      #b91c1c
+    );
+}
+
+
+/* =========================================
+   FOCUS
+========================================= */
+
+.auth-card button:focus-visible {
+  outline: 3px solid rgba(99, 102, 241, 0.25);
+
+  outline-offset: 2px;
+}
+
+
+/* =========================================
+   MOBILE
+========================================= */
+
+@media (max-width: 600px) {
+
+  .auth-container {
+    padding: 20px;
+  }
+
+  .auth-card {
+    max-width: 100%;
+
+    padding: 38px 28px;
+
+    border-radius: 16px;
+  }
+
+  .auth-card h1 {
+    font-size: 28px;
+  }
+
+  .subtitle {
+    font-size: 14px;
+  }
+
+  .auth-card::before {
+    width: 68px;
+    height: 68px;
+
+    font-size: 30px;
+  }
+
+  .auth-card button {
+    height: 52px;
+  }
+}

@@ -1,0 +1,77 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.database import Base, engine
+from app.models.user import User
+from app.models.product import Product
+from app.models.cart import Cart
+
+from app.routers.auth import router as auth_router
+from app.routers.product import router as product_router
+from app.routers.cart import router as cart_router
+
+
+# =========================================================
+# Create Database Tables
+# =========================================================
+
+Base.metadata.create_all(bind=engine)
+
+
+# =========================================================
+# Create FastAPI Application
+# =========================================================
+
+app = FastAPI(
+    title="Smart E-Commerce Platform",
+    description="Backend API for the Smart E-Commerce Platform",
+    version="1.0.0"
+)
+
+
+# =========================================================
+# CORS Configuration
+# =========================================================
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5174",
+        "http://localhost:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# =========================================================
+# Include Authentication Routes
+# =========================================================
+
+app.include_router(auth_router)
+
+
+# =========================================================
+# Include Product Routes
+# =========================================================
+
+app.include_router(product_router)
+
+
+# =========================================================
+# Include Cart Routes
+# =========================================================
+
+app.include_router(cart_router)
+
+
+# =========================================================
+# Root Endpoint
+# =========================================================
+
+@app.get("/")
+def root():
+    return {
+        "message": "Smart E-Commerce Platform API is running"
+    }
