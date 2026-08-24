@@ -11,6 +11,8 @@ from app.models.user import User
 from app.models.product import Product
 from app.models.cart import Cart
 from app.models.cart_item import CartItem
+from app.models.order import Order
+from app.models.payment import Payment
 
 
 # =========================================================
@@ -20,6 +22,8 @@ from app.models.cart_item import CartItem
 from app.routers.auth import router as auth_router
 from app.routers.product import router as product_router
 from app.routers.cart import router as cart_router
+from app.routers.checkout import router as checkout_router
+from app.routers.webhook import router as webhook_router
 
 
 # =========================================================
@@ -75,6 +79,20 @@ app.include_router(product_router)
 # =========================================================
 
 app.include_router(cart_router)
+
+
+# =========================================================
+# Include Checkout Routes
+# =========================================================
+
+app.include_router(checkout_router)
+
+
+# =========================================================
+# Include Stripe Webhook Routes
+# =========================================================
+
+app.include_router(webhook_router)
 
 
 # =========================================================
