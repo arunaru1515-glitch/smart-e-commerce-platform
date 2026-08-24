@@ -13,15 +13,80 @@ router = APIRouter(
 
 
 # =========================================================
-# GET ALL PRODUCTS
+# GET ALL PRODUCTS + FILTERS
 # =========================================================
 
 @router.get("/")
 def get_products(
+    category: str = None,
+    min_price: float = None,
+    max_price: float = None,
+    min_popularity: int = None,
+    in_stock: bool = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    products = db.query(Product).all()
+    query = db.query(Product)
+
+    # Category filter
+    if category:
+        query = query.filter(
+            Product.category == category
+        )
+
+    # Minimum price filter
+    if min_price is not None:
+        query = query.filter(
+            Product.price >= min_price
+        )
+
+    # Maximum price filter
+    if max_price is not None:
+        query = query.filter(
+            Product.price <= max_price
+        )
+
+    # Popularity filter
+    if min_popularity is not None:
+        query = query.filter(
+            Product.popularity >= min_popularity
+        )
+
+    # Stock availability filter
+    if in_stock is True:
+        query = query.filter(
+            Product.stock_quantity > 0
+        )
+
+    if in_stock is False:
+        query = query.filter(
+            Product.stock_quantity == 0
+        )
+
+    products = query.all()
+
+    return products
+
+
+# =========================================================
+# GET PRODUCTS BY CATEGORY
+# =========================================================
+
+@router.get("/category/{category}")
+def get_products_by_category(
+    category: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    products = db.query(Product).filter(
+        Product.category == category
+    ).all()
+
+    if not products:
+        raise HTTPException(
+            status_code=404,
+            detail="No products found in this category"
+        )
 
     return products
 
@@ -59,6 +124,8 @@ def create_product(
     description: str,
     price: float,
     stock: int,
+    category: str = "General",
+    popularity: int = 0,
     images: str = None,
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("admin"))
@@ -68,6 +135,10 @@ def create_product(
         description=description,
         price=price,
         stock=stock,
+        category=category,
+        popularity=popularity,
+        stock_quantity=stock,
+        is_available=stock > 0,
         images=images
     )
 
@@ -92,6 +163,8 @@ def update_product(
     description: str,
     price: float,
     stock: int,
+    category: str = "General",
+    popularity: int = 0,
     images: str = None,
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("admin"))
@@ -110,6 +183,10 @@ def update_product(
     product.description = description
     product.price = price
     product.stock = stock
+    product.category = category
+    product.popularity = popularity
+    product.stock_quantity = stock
+    product.is_available = stock > 0
     product.images = images
 
     db.commit()

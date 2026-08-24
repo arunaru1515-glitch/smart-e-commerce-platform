@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 # MySQL database connection
-DATABASE_URL = "mysql+pymysql://root:1234567890@localhost:3306/ecommerce_db"
+DATABASE_URL = "mysql+pymysql://root:811008@localhost:3306/ecommerce_db"
 
 # Create database engine
 engine = create_engine(

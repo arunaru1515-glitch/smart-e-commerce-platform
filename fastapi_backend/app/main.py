@@ -2,9 +2,20 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine
+
+# =========================================================
+# Database Models
+# =========================================================
+
 from app.models.user import User
 from app.models.product import Product
 from app.models.cart import Cart
+from app.models.cart_item import CartItem
+
+
+# =========================================================
+# Routers
+# =========================================================
 
 from app.routers.auth import router as auth_router
 from app.routers.product import router as product_router

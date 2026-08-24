@@ -35,7 +35,7 @@ function Home() {
   );
 
   // =========================================================
-  // Normal Auth0 Login
+  // NORMAL AUTH0 LOGIN
   // =========================================================
 
   const handleLogin = async () => {
@@ -48,7 +48,7 @@ function Home() {
   };
 
   // =========================================================
-  // Google Login
+  // GOOGLE LOGIN
   // =========================================================
 
   const handleGoogleLogin = async () => {
@@ -62,7 +62,7 @@ function Home() {
   };
 
   // =========================================================
-  // Facebook Login
+  // FACEBOOK LOGIN
   // =========================================================
 
   const handleFacebookLogin = async () => {
@@ -76,7 +76,7 @@ function Home() {
   };
 
   // =========================================================
-  // Logout
+  // LOGOUT
   // =========================================================
 
   const handleLogout = () => {
@@ -93,7 +93,7 @@ function Home() {
   };
 
   // =========================================================
-  // Authenticate Auth0 User with FastAPI
+  // AUTHENTICATE AUTH0 USER WITH FASTAPI
   // =========================================================
 
   const authenticateWithBackend = async () => {
@@ -159,7 +159,7 @@ function Home() {
   };
 
   // =========================================================
-  // Authenticate Button
+  // AUTHENTICATE BUTTON
   // =========================================================
 
   const handleBackendLogin = async () => {
@@ -176,7 +176,7 @@ function Home() {
   };
 
   // =========================================================
-  // Fetch Products
+  // FETCH PRODUCTS
   // =========================================================
 
   const fetchProducts = async (token) => {
@@ -233,7 +233,7 @@ function Home() {
   };
 
   // =========================================================
-  // Automatically Load Products
+  // AUTOMATICALLY LOAD PRODUCTS
   // =========================================================
 
   useEffect(() => {
@@ -256,10 +256,9 @@ function Home() {
         return;
       }
 
-      // -----------------------------------------------------
-      // STEP 1:
-      // Get the currently logged-in user
-      // -----------------------------------------------------
+      // =====================================================
+      // STEP 1: GET CURRENT USER
+      // =====================================================
 
       const userResponse = await fetch(
         "http://127.0.0.1:8000/auth/me",
@@ -290,7 +289,6 @@ function Home() {
         return;
       }
 
-      // This is the REAL logged-in user's ID
       const userId = userData.user_id;
 
       console.log(
@@ -298,13 +296,14 @@ function Home() {
         userId
       );
 
-      // -----------------------------------------------------
-      // STEP 2:
-      // Add product to THAT user's cart
-      // -----------------------------------------------------
+      // =====================================================
+      // STEP 2: ADD PRODUCT TO CART
+      // Backend endpoint:
+      // POST /cart/add
+      // =====================================================
 
       const response = await fetch(
-        `http://127.0.0.1:8000/cart/?user_id=${userId}&product_id=${productId}&quantity=1`,
+        `http://127.0.0.1:8000/cart/add?user_id=${userId}&product_id=${productId}&quantity=1`,
         {
           method: "POST",
 
@@ -349,7 +348,7 @@ function Home() {
   };
 
   // =========================================================
-  // Loading
+  // LOADING
   // =========================================================
 
   if (isLoading) {
@@ -421,7 +420,7 @@ function Home() {
       <div className="auth-card">
 
         {/* =================================================
-            Header
+            HEADER
         ================================================= */}
 
         <h1>
@@ -433,7 +432,7 @@ function Home() {
         </p>
 
         {/* =================================================
-            User Profile
+            USER PROFILE
         ================================================= */}
 
         <div className="profile">
@@ -471,7 +470,7 @@ function Home() {
         </div>
 
         {/* =================================================
-            Backend Authentication
+            BACKEND AUTHENTICATION
         ================================================= */}
 
         {!backendToken && (
@@ -484,7 +483,7 @@ function Home() {
         )}
 
         {/* =================================================
-            View Cart
+            VIEW CART
         ================================================= */}
 
         {backendToken && (
@@ -499,7 +498,7 @@ function Home() {
         )}
 
         {/* =================================================
-            Logout
+            LOGOUT
         ================================================= */}
 
         <button
@@ -510,7 +509,7 @@ function Home() {
         </button>
 
         {/* =================================================
-            Products
+            PRODUCTS
         ================================================= */}
 
         <div className="products-section">
