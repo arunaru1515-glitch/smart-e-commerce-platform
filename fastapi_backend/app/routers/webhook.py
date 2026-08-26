@@ -1,12 +1,26 @@
 import os
 import stripe
 
+from dotenv import load_dotenv
+
 from fastapi import APIRouter, Request, HTTPException, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+
 from app.models.order import Order
 from app.models.payment import Payment
+from app.models.notification import Notification
+from app.models.user import User
+
+from app.services.email_service import send_email
+
+
+# =========================================================
+# LOAD ENVIRONMENT VARIABLES
+# =========================================================
+
+load_dotenv()
 
 
 # =========================================================
@@ -57,6 +71,7 @@ async def stripe_webhook(
     # =====================================================
 
     try:
+
         event = stripe.Webhook.construct_event(
             payload,
             signature,
@@ -64,12 +79,14 @@ async def stripe_webhook(
         )
 
     except ValueError:
+
         raise HTTPException(
             status_code=400,
             detail="Invalid webhook payload"
         )
 
     except stripe.error.SignatureVerificationError:
+
         raise HTTPException(
             status_code=400,
             detail="Invalid webhook signature"
@@ -83,45 +100,35 @@ async def stripe_webhook(
 
         payment_intent = event["data"]["object"]
 
-        # =================================================
-        # Stripe Payment Intent ID
-        # =================================================
-
         stripe_payment_intent_id = payment_intent["id"]
 
         # =================================================
-        # Find Payment Using Stripe Transaction ID
+        # Find Payment
         # =================================================
 
         payment = db.query(Payment).filter(
             Payment.transaction_id == stripe_payment_intent_id
         ).first()
 
-        # =================================================
-        # Payment Record Not Found
-        # =================================================
-
         if not payment:
+
             raise HTTPException(
                 status_code=404,
                 detail="Payment record not found"
             )
 
         # =================================================
-        # Get Order ID Directly From Payment Record
+        # Get Order
         # =================================================
 
         order_id = payment.order_id
-
-        # =================================================
-        # Find Order
-        # =================================================
 
         order = db.query(Order).filter(
             Order.id == order_id
         ).first()
 
         if not order:
+
             raise HTTPException(
                 status_code=404,
                 detail="Order not found"
@@ -141,6 +148,22 @@ async def stripe_webhook(
         order.order_status = "paid"
 
         # =================================================
+        # Create Payment Success Notification
+        # =================================================
+
+        notification = Notification(
+            user=order.user,
+            type="payment",
+            message=(
+                f"Payment successful for Order #{order.id}. "
+                f"Amount: ₹{payment.amount}"
+            ),
+            read_status="unread"
+        )
+
+        db.add(notification)
+
+        # =================================================
         # Save Changes
         # =================================================
 
@@ -152,6 +175,34 @@ async def stripe_webhook(
 
         db.refresh(payment)
         db.refresh(order)
+        db.refresh(notification)
+
+        # =================================================
+        # GET USER
+        # =================================================
+
+        user = db.query(User).filter(
+            User.id == order.user
+        ).first()
+
+        # =================================================
+        # SEND PAYMENT SUCCESS EMAIL
+        # =================================================
+
+        if user and user.email:
+
+            send_email(
+                to_email=user.email,
+                subject="Payment Successful - Smart E-Commerce Platform",
+                message=(
+                    f"Hello,\n\n"
+                    f"Your payment was successful.\n\n"
+                    f"Order ID: #{order.id}\n"
+                    f"Amount: ₹{payment.amount}\n"
+                    f"Payment Status: Paid\n\n"
+                    f"Thank you for shopping with us."
+                )
+            )
 
         # =================================================
         # Success Response
@@ -161,6 +212,7 @@ async def stripe_webhook(
             "message": "Payment successful",
             "order_id": order.id,
             "payment_id": payment.id,
+            "notification_id": notification.id,
             "payment_status": payment.status,
             "order_payment_status": order.payment_status,
             "order_status": order.order_status
@@ -176,24 +228,105 @@ async def stripe_webhook(
 
         stripe_payment_intent_id = payment_intent["id"]
 
+        # =================================================
+        # Find Payment
+        # =================================================
+
         payment = db.query(Payment).filter(
             Payment.transaction_id == stripe_payment_intent_id
         ).first()
 
         if payment:
+
+            # =============================================
+            # Update Payment Status
+            # =============================================
+
             payment.status = "failed"
+
+            # =============================================
+            # Get Order
+            # =============================================
 
             order = db.query(Order).filter(
                 Order.id == payment.order_id
             ).first()
 
+            notification = None
+
             if order:
+
+                # =========================================
+                # Update Order Payment Status
+                # =========================================
+
                 order.payment_status = "failed"
+
+                # =========================================
+                # Create Payment Failed Notification
+                # =========================================
+
+                notification = Notification(
+                    user=order.user,
+                    type="payment_failed",
+                    message=(
+                        f"Payment failed for Order #{order.id}. "
+                        f"Please try again."
+                    ),
+                    read_status="unread"
+                )
+
+                db.add(notification)
+
+            # =============================================
+            # Save Changes
+            # =============================================
 
             db.commit()
 
+            # =============================================
+            # Refresh Objects
+            # =============================================
+
+            db.refresh(payment)
+
+            if order:
+                db.refresh(order)
+
+            if notification:
+                db.refresh(notification)
+
+            # =============================================
+            # Response
+            # =============================================
+
+            return {
+                "message": "Payment failed",
+                "payment_id": payment.id,
+                "order_id": (
+                    order.id
+                    if order
+                    else None
+                ),
+                "notification_id": (
+                    notification.id
+                    if notification
+                    else None
+                ),
+                "payment_status": payment.status,
+                "order_payment_status": (
+                    order.payment_status
+                    if order
+                    else None
+                )
+            }
+
+        # =================================================
+        # Payment Record Not Found
+        # =================================================
+
         return {
-            "message": "Payment failed",
+            "message": "Payment record not found",
             "payment_id": stripe_payment_intent_id
         }
 

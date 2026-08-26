@@ -13,6 +13,7 @@ from app.models.cart import Cart
 from app.models.cart_item import CartItem
 from app.models.order import Order
 from app.models.payment import Payment
+from app.models.notification import Notification
 
 
 # =========================================================
@@ -24,6 +25,9 @@ from app.routers.product import router as product_router
 from app.routers.cart import router as cart_router
 from app.routers.checkout import router as checkout_router
 from app.routers.webhook import router as webhook_router
+from app.routers.notification import router as notification_router
+from app.routers.order import router as order_router
+from app.routers.websocket import router as websocket_router
 
 
 # =========================================================
@@ -93,6 +97,27 @@ app.include_router(checkout_router)
 # =========================================================
 
 app.include_router(webhook_router)
+
+
+# =========================================================
+# Include Notification Routes
+# =========================================================
+
+app.include_router(notification_router)
+
+
+# =========================================================
+# Include Order Routes
+# =========================================================
+
+app.include_router(order_router)
+
+
+# =========================================================
+# Include WebSocket Routes
+# =========================================================
+
+app.include_router(websocket_router)
 
 
 # =========================================================

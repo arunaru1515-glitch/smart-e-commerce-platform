@@ -6,6 +6,8 @@ from app.models.cart import Cart
 from app.models.cart_item import CartItem
 from app.models.product import Product
 
+from app.services.websocket_service import manager
+
 
 router = APIRouter(
     prefix="/cart",
@@ -19,7 +21,7 @@ router = APIRouter(
 # =========================================================
 
 @router.post("/add")
-def add_to_cart(
+async def add_to_cart(
     user_id: int,
     product_id: int,
     quantity: int = 1,
@@ -57,6 +59,7 @@ def add_to_cart(
 
     # Create cart if user does not have one
     if not cart:
+
         cart = Cart(
             user_id=user_id
         )
@@ -65,7 +68,7 @@ def add_to_cart(
         db.commit()
         db.refresh(cart)
 
-    # Check whether product already exists in cart
+    # Check whether product already exists
     existing_item = db.query(CartItem).filter(
         CartItem.cart_id == cart.id,
         CartItem.product_id == product_id
@@ -86,6 +89,22 @@ def add_to_cart(
 
         db.commit()
         db.refresh(existing_item)
+
+        # =================================================
+        # REAL-TIME CART UPDATE
+        # =================================================
+
+        await manager.send_to_user(
+            user_id,
+            {
+                "event": "cart_updated",
+                "cart_id": cart.id,
+                "cart_item_id": existing_item.id,
+                "product_id": product_id,
+                "quantity": existing_item.quantity,
+                "action": "quantity_updated"
+            }
+        )
 
         return {
             "message": "Cart quantity updated successfully",
@@ -109,6 +128,22 @@ def add_to_cart(
     db.commit()
     db.refresh(cart_item)
 
+    # =====================================================
+    # REAL-TIME CART UPDATE
+    # =====================================================
+
+    await manager.send_to_user(
+        user_id,
+        {
+            "event": "cart_updated",
+            "cart_id": cart.id,
+            "cart_item_id": cart_item.id,
+            "product_id": product_id,
+            "quantity": quantity,
+            "action": "product_added"
+        }
+    )
+
     return {
         "message": "Product added to cart successfully",
         "cart_id": cart.id,
@@ -126,7 +161,7 @@ def add_to_cart(
 # =========================================================
 
 @router.put("/update")
-def update_cart(
+async def update_cart(
     cart_item_id: int,
     quantity: int,
     db: Session = Depends(get_db)
@@ -173,6 +208,28 @@ def update_cart(
     db.commit()
     db.refresh(cart_item)
 
+    # =====================================================
+    # REAL-TIME CART UPDATE
+    # =====================================================
+
+    cart = db.query(Cart).filter(
+        Cart.id == cart_item.cart_id
+    ).first()
+
+    if cart:
+
+        await manager.send_to_user(
+            cart.user_id,
+            {
+                "event": "cart_updated",
+                "cart_id": cart.id,
+                "cart_item_id": cart_item.id,
+                "product_id": cart_item.product_id,
+                "quantity": cart_item.quantity,
+                "action": "quantity_updated"
+            }
+        )
+
     return {
         "message": "Cart quantity updated successfully",
         "cart_id": cart_item.cart_id,
@@ -189,7 +246,7 @@ def update_cart(
 # =========================================================
 
 @router.delete("/remove")
-def remove_from_cart(
+async def remove_from_cart(
     cart_item_id: int,
     db: Session = Depends(get_db)
 ):
@@ -206,8 +263,31 @@ def remove_from_cart(
 
     cart_id = cart_item.cart_id
 
+    # Find cart before deleting item
+    cart = db.query(Cart).filter(
+        Cart.id == cart_id
+    ).first()
+
+    user_id = cart.user_id if cart else None
+
     db.delete(cart_item)
     db.commit()
+
+    # =====================================================
+    # REAL-TIME CART UPDATE
+    # =====================================================
+
+    if user_id:
+
+        await manager.send_to_user(
+            user_id,
+            {
+                "event": "cart_updated",
+                "cart_id": cart_id,
+                "cart_item_id": cart_item_id,
+                "action": "product_removed"
+            }
+        )
 
     return {
         "message": "Product removed from cart successfully",
@@ -234,6 +314,7 @@ def get_cart(
 
     # User has no cart
     if not cart:
+
         return {
             "user_id": user_id,
             "cart_id": None,

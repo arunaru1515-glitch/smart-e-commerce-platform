@@ -1,5 +1,5 @@
 import { useAuth0 } from "@auth0/auth0-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -34,17 +34,79 @@ function Home() {
     localStorage.getItem("backendToken")
   );
 
+  // Local FastAPI login
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [backendUser, setBackendUser] = useState(null);
+
   // =========================================================
-  // NORMAL AUTH0 LOGIN
+  // NOTIFICATIONS - ASSESSMENT 6
+  // =========================================================
+
+  const [notifications, setNotifications] = useState([]);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [loadingNotifications, setLoadingNotifications] =
+    useState(false);
+
+  const notificationRef = useRef(null);
+  const websocketRef = useRef(null);
+
+  // =========================================================
+  // NORMAL EMAIL / PASSWORD LOGIN
   // =========================================================
 
   const handleLogin = async () => {
-    await loginWithRedirect({
-      authorizationParams: {
-        audience: "https://smart-ecommerce-api",
-        scope: "openid profile email",
-      },
-    });
+    if (!loginEmail || !loginPassword) {
+      alert("Please enter email and password");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:8000/auth/login?email=${encodeURIComponent(
+          loginEmail
+        )}&password=${encodeURIComponent(loginPassword)}`,
+        {
+          method: "POST",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.detail || "Invalid email or password");
+        return;
+      }
+
+      // Save FastAPI JWT
+      setBackendToken(data.access_token);
+      localStorage.setItem("backendToken", data.access_token);
+
+      // Get current FastAPI user
+      const userResponse = await fetch(
+        "http://127.0.0.1:8000/auth/me",
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${data.access_token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const userData = await userResponse.json();
+
+      if (userResponse.ok) {
+        setBackendUser(userData);
+      }
+
+      setLoginEmail("");
+      setLoginPassword("");
+
+    } catch (error) {
+      console.error("Login error:", error);
+      alert("Could not connect to backend");
+    }
   };
 
   // =========================================================
@@ -83,13 +145,18 @@ function Home() {
     localStorage.removeItem("backendToken");
 
     setBackendToken(null);
+    setBackendUser(null);
     setProducts([]);
+    setNotifications([]);
 
-    logout({
-      logoutParams: {
-        returnTo: window.location.origin,
-      },
-    });
+    // Only perform Auth0 logout when an Auth0 session exists.
+    if (isAuthenticated) {
+      logout({
+        logoutParams: {
+          returnTo: window.location.origin,
+        },
+      });
+    }
   };
 
   // =========================================================
@@ -143,16 +210,13 @@ function Home() {
       console.log("FastAPI JWT received");
 
       return data.access_token;
-
     } catch (error) {
       console.error(
         "Backend authentication error:",
         error
       );
 
-      alert(
-        "Could not connect to backend"
-      );
+      alert("Could not connect to backend");
 
       return null;
     }
@@ -172,6 +236,7 @@ function Home() {
       );
 
       await fetchProducts(token);
+      await fetchNotifications(token);
     }
   };
 
@@ -195,7 +260,6 @@ function Home() {
         "http://127.0.0.1:8000/products/",
         {
           method: "GET",
-
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
@@ -220,27 +284,238 @@ function Home() {
       }
 
       setProducts(data);
-
     } catch (error) {
       console.error(
         "Error fetching products:",
         error
       );
-
     } finally {
       setLoadingProducts(false);
     }
   };
 
   // =========================================================
-  // AUTOMATICALLY LOAD PRODUCTS
+  // FETCH NOTIFICATIONS
+  // =========================================================
+
+  const fetchNotifications = async (
+    token = backendToken
+  ) => {
+    try {
+      if (!token) {
+        setNotifications([]);
+        return;
+      }
+
+      setLoadingNotifications(true);
+
+      const response = await fetch(
+        "http://127.0.0.1:8000/notifications/",
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      console.log(
+        "Notifications API Response:",
+        data
+      );
+
+      if (!response.ok) {
+        console.error(
+          "Notification fetch failed:",
+          data
+        );
+
+        setNotifications([]);
+        return;
+      }
+
+      // Supports both:
+      // [...]
+      // { notifications: [...] }
+
+      const notificationList =
+        Array.isArray(data)
+          ? data
+          : Array.isArray(data.notifications)
+          ? data.notifications
+          : [];
+
+      setNotifications(notificationList);
+    } catch (error) {
+      console.error(
+        "Notification loading error:",
+        error
+      );
+
+      setNotifications([]);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  // =========================================================
+  // MARK NOTIFICATION AS READ
+  // =========================================================
+
+  const markNotificationAsRead = async (
+    notificationId
+  ) => {
+    try {
+      if (!backendToken || !notificationId) {
+        return;
+      }
+
+      const response = await fetch(
+        `http://127.0.0.1:8000/notifications/read?notification_id=${notificationId}`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${backendToken}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      console.log(
+        "Mark Notification Read Response:",
+        data
+      );
+
+      if (!response.ok) {
+        console.error(
+          "Failed to mark notification as read:",
+          data
+        );
+
+        return;
+      }
+
+      // Update notification immediately in UI
+      setNotifications((previous) =>
+        previous.map((notification) => {
+          const currentId =
+            notification.notification_id ??
+            notification.id;
+
+          if (
+            String(currentId) ===
+            String(notificationId)
+          ) {
+            return {
+              ...notification,
+              is_read: true,
+              read: true,
+              status: "read",
+            };
+          }
+
+          return notification;
+        })
+      );
+    } catch (error) {
+      console.error(
+        "Mark notification read error:",
+        error
+      );
+    }
+  };
+
+  // =========================================================
+  // NOTIFICATION CLICK
+  // =========================================================
+
+  const handleNotificationClick = async (
+    notification
+  ) => {
+    const notificationId =
+      notification.notification_id ??
+      notification.id;
+
+    const alreadyRead =
+      notification.is_read === true ||
+      notification.read === true ||
+      notification.status === "read";
+
+    if (
+      !alreadyRead &&
+      notificationId
+    ) {
+      await markNotificationAsRead(
+        notificationId
+      );
+    }
+  };
+
+  // =========================================================
+  // AUTOMATICALLY LOAD PRODUCTS + NOTIFICATIONS
   // =========================================================
 
   useEffect(() => {
     if (backendToken) {
       fetchProducts(backendToken);
+      fetchNotifications(backendToken);
     }
   }, [backendToken]);
+  
+
+  // =========================================================
+// WEBSOCKET - REAL-TIME NOTIFICATIONS
+// =========================================================
+
+useEffect(() => {
+  if (!backendToken) return;
+
+  const ws = new WebSocket(
+    `ws://127.0.0.1:8000/ws/9`
+  );
+
+  websocketRef.current = ws;
+
+  ws.onopen = () => {
+    console.log("WebSocket connected");
+  };
+
+  ws.onmessage = (event) => {
+    try {
+      const notification = JSON.parse(event.data);
+
+      setNotifications((prev) => [
+        notification,
+        ...prev
+      ]);
+    } catch (error) {
+      console.error(
+        "Notification parsing error:",
+        error
+      );
+    }
+  };
+
+  ws.onclose = () => {
+    console.log("WebSocket disconnected");
+  };
+
+  ws.onerror = (error) => {
+    console.error(
+      "WebSocket error:",
+      error
+    );
+  };
+
+  return () => {
+    ws.close();
+  };
+}, [backendToken]);
 
   // =========================================================
   // ADD PRODUCT TO CART
@@ -264,7 +539,6 @@ function Home() {
         "http://127.0.0.1:8000/auth/me",
         {
           method: "GET",
-
           headers: {
             Authorization: `Bearer ${backendToken}`,
             "Content-Type": "application/json",
@@ -306,7 +580,6 @@ function Home() {
         `http://127.0.0.1:8000/cart/add?user_id=${userId}&product_id=${productId}&quantity=1`,
         {
           method: "POST",
-
           headers: {
             Authorization: `Bearer ${backendToken}`,
             "Content-Type": "application/json",
@@ -334,7 +607,6 @@ function Home() {
       alert(
         "Product added to cart successfully!"
       );
-
     } catch (error) {
       console.error(
         "Add to cart error:",
@@ -346,6 +618,56 @@ function Home() {
       );
     }
   };
+
+  // =========================================================
+  // NOTIFICATION HELPERS
+  // =========================================================
+
+  const getNotificationId = (
+    notification
+  ) => {
+    return (
+      notification.notification_id ??
+      notification.id
+    );
+  };
+
+  const getNotificationTitle = (
+    notification
+  ) => {
+    return (
+      notification.title ||
+      notification.subject ||
+      "Notification"
+    );
+  };
+
+  const getNotificationMessage = (
+    notification
+  ) => {
+    return (
+      notification.message ||
+      notification.content ||
+      notification.description ||
+      "You have a new notification."
+    );
+  };
+
+  const isNotificationRead = (
+    notification
+  ) => {
+    return (
+      notification.is_read === true ||
+      notification.read === true ||
+      notification.status === "read"
+    );
+  };
+
+  const unreadCount =
+    notifications.filter(
+      (notification) =>
+        !isNotificationRead(notification)
+    ).length;
 
   // =========================================================
   // LOADING
@@ -363,7 +685,7 @@ function Home() {
   // LOGIN PAGE
   // =========================================================
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated && !backendToken) {
     return (
       <div className="auth-container">
 
@@ -374,16 +696,30 @@ function Home() {
           </h1>
 
           <p className="subtitle">
-            Authentication using Auth0
+            Login with your account
           </p>
 
-          {/* Normal Login */}
+          {/* Normal Email / Password Login */}
+
+          <input
+            type="email"
+            placeholder="Email"
+            value={loginEmail}
+            onChange={(e) => setLoginEmail(e.target.value)}
+          />
+
+          <input
+            type="password"
+            placeholder="Password"
+            value={loginPassword}
+            onChange={(e) => setLoginPassword(e.target.value)}
+          />
 
           <button
             className="login-button"
             onClick={handleLogin}
           >
-            Login with Auth0
+            Login
           </button>
 
           {/* Google Login */}
@@ -432,6 +768,175 @@ function Home() {
         </p>
 
         {/* =================================================
+            NOTIFICATIONS - ASSESSMENT 6
+        ================================================= */}
+
+        {backendToken && (
+          <div
+            className="notification-wrapper"
+            ref={notificationRef}
+          >
+
+            <button
+              type="button"
+              className="notification-button"
+              onClick={() => {
+                setNotificationOpen(
+                  (previous) => !previous
+                );
+
+                if (!notificationOpen) {
+                  fetchNotifications(
+                    backendToken
+                  );
+                }
+              }}
+            >
+              <span className="notification-icon">
+                🔔
+              </span>
+
+              {unreadCount > 0 && (
+                <span className="notification-badge">
+                  {unreadCount > 99
+                    ? "99+"
+                    : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {notificationOpen && (
+              <div className="notification-panel">
+
+                <div className="notification-panel-header">
+
+                  <div>
+                    <h3>
+                      Notifications
+                    </h3>
+
+                    <span>
+                      {unreadCount > 0
+                        ? `${unreadCount} unread`
+                        : "No unread notifications"}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="notification-refresh"
+                    onClick={() =>
+                      fetchNotifications(
+                        backendToken
+                      )
+                    }
+                  >
+                    ↻
+                  </button>
+
+                </div>
+
+                <div className="notification-list">
+
+                  {loadingNotifications ? (
+
+                    <div className="notification-empty">
+                      Loading notifications...
+                    </div>
+
+                  ) : notifications.length === 0 ? (
+
+                    <div className="notification-empty">
+                      No notifications
+                    </div>
+
+                  ) : (
+
+                    notifications.map(
+                      (notification) => {
+
+                        const notificationId =
+                          getNotificationId(
+                            notification
+                          );
+
+                        const read =
+                          isNotificationRead(
+                            notification
+                          );
+
+                        return (
+                          <button
+                            type="button"
+                            key={
+                              notificationId
+                            }
+                            className={`notification-item ${
+                              read
+                                ? "read"
+                                : "unread"
+                            }`}
+                            onClick={() =>
+                              handleNotificationClick(
+                                notification
+                              )
+                            }
+                          >
+
+                            <span
+                              className={`notification-status-dot ${
+                                read
+                                  ? "read"
+                                  : ""
+                              }`}
+                            />
+
+                            <span className="notification-item-content">
+
+                              <span className="notification-title">
+                                {getNotificationTitle(
+                                  notification
+                                )}
+                              </span>
+
+                              <span className="notification-message">
+                                {getNotificationMessage(
+                                  notification
+                                )}
+                              </span>
+
+                              {notification.created_at && (
+                                <span className="notification-time">
+                                  {new Date(
+                                    notification.created_at
+                                  ).toLocaleString()}
+                                </span>
+                              )}
+
+                            </span>
+
+                            {!read && (
+                              <span className="notification-new">
+                                New
+                              </span>
+                            )}
+
+                          </button>
+                        );
+                      }
+                    )
+
+                  )}
+
+                </div>
+
+              </div>
+            )}
+
+          </div>
+        )}
+
+        {/* =================================================
             USER PROFILE
         ================================================= */}
 
@@ -452,19 +957,21 @@ function Home() {
           <p>
             <strong>Name:</strong>{" "}
             {user?.name ||
+              backendUser?.name ||
               "Not available"}
           </p>
 
           <p>
             <strong>Email:</strong>{" "}
             {user?.email ||
+              backendUser?.email ||
               "Not available"}
           </p>
 
           <p>
             <strong>Auth0 ID:</strong>{" "}
             {user?.sub ||
-              "Not available"}
+              "Not applicable for email/password login"}
           </p>
 
         </div>
