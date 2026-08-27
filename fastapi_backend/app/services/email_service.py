@@ -4,10 +4,11 @@ from email.message import EmailMessage
 
 from dotenv import load_dotenv
 
+# Load .env
 load_dotenv()
 
 
-def send_order_status_email(
+def send_email(
     to_email: str,
     order_id: int,
     status: str
@@ -16,16 +17,49 @@ def send_order_status_email(
     Send order status update email to customer.
     """
 
-    sender_email = os.getenv("EMAIL_USERNAME")
-    sender_password = os.getenv("EMAIL_PASSWORD")
+    # SMTP configuration
+    smtp_host = os.getenv(
+        "SMTP_HOST",
+        "smtp.gmail.com"
+    )
 
-    if not sender_email or not sender_password:
+    smtp_port = int(
+        os.getenv(
+            "SMTP_PORT",
+            "587"
+        )
+    )
+
+    sender_email = os.getenv(
+        "SMTP_USERNAME"
+    )
+
+    sender_password = os.getenv(
+        "SMTP_PASSWORD"
+    )
+
+    # Validate configuration
+    if not sender_email:
         raise Exception(
-            "Email configuration is missing in .env"
+            "SMTP_USERNAME is missing in .env"
         )
 
-    subject = f"Order #{order_id} Status Update"
+    if not sender_password:
+        raise Exception(
+            "SMTP_PASSWORD is missing in .env"
+        )
 
+    if not to_email:
+        raise Exception(
+            "Customer email is missing"
+        )
+
+    # Email subject
+    subject = (
+        f"Order #{order_id} Status Update"
+    )
+
+    # Email body
     message = f"""
 Hello,
 
@@ -39,6 +73,7 @@ Regards,
 Smart E-Commerce Platform
 """
 
+    # Create email
     email = EmailMessage()
 
     email["From"] = sender_email
@@ -47,16 +82,72 @@ Smart E-Commerce Platform
 
     email.set_content(message)
 
-    with smtplib.SMTP_SSL(
-        "smtp.gmail.com",
-        465
-    ) as smtp:
+    try:
 
-        smtp.login(
-            sender_email,
-            sender_password
+        # Gmail SMTP connection
+        if smtp_port == 465:
+
+            # SSL connection
+            with smtplib.SMTP_SSL(
+                smtp_host,
+                smtp_port
+            ) as smtp:
+
+                smtp.login(
+                    sender_email,
+                    sender_password
+                )
+
+                smtp.send_message(email)
+
+        else:
+
+            # STARTTLS connection
+            with smtplib.SMTP(
+                smtp_host,
+                smtp_port
+            ) as smtp:
+
+                smtp.ehlo()
+
+                smtp.starttls()
+
+                smtp.ehlo()
+
+                smtp.login(
+                    sender_email,
+                    sender_password
+                )
+
+                smtp.send_message(email)
+
+        print(
+            f"Email sent successfully to {to_email}"
         )
 
-        smtp.send_message(email)
+        return True
 
-    return True
+    except Exception as e:
+
+        print(
+            f"Email sending failed: {str(e)}"
+        )
+
+        raise
+
+
+# Backward-compatible function
+def send_order_status_email(
+    to_email: str,
+    order_id: int,
+    status: str
+):
+    """
+    Send order status email.
+    """
+
+    return send_email(
+        to_email=to_email,
+        order_id=order_id,
+        status=status
+    )

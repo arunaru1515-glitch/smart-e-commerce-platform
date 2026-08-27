@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "Smart E-Commerce Platform",
-    "description": "Assessment 3 - Smart E-Commerce Platform FastAPI API Collection",
+    "name": "Smart E-Commerce Platform - Complete API Collection",
+    "description": "Complete Postman collection for the Smart E-Commerce Platform API. Covers health/version, authentication, Auth0 integration, product CRUD, cart operations, checkout/Stripe payment intent, notifications, and Stripe webhook.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -18,6 +18,10 @@
       "value": ""
     },
     {
+      "key": "auth0_token",
+      "value": ""
+    },
+    {
       "key": "user_id",
       "value": "2"
     },
@@ -30,11 +34,74 @@
       "value": "1"
     },
     {
-      "key": "auth0_token",
+      "key": "order_id",
+      "value": ""
+    },
+    {
+      "key": "payment_id",
+      "value": ""
+    },
+    {
+      "key": "stripe_payment_intent_id",
+      "value": ""
+    },
+    {
+      "key": "client_secret",
+      "value": ""
+    },
+    {
+      "key": "notification_id",
+      "value": "1"
+    },
+    {
+      "key": "stripe_signature",
+      "value": ""
+    },
+    {
+      "key": "timestamp",
       "value": ""
     }
   ],
   "item": [
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Verify that the FastAPI application is running."
+          }
+        },
+        {
+          "name": "API Version",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/version",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "version"
+              ]
+            },
+            "description": "Verify the application version endpoint."
+          }
+        }
+      ]
+    },
     {
       "name": "Authentication",
       "item": [
@@ -44,7 +111,7 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/auth/register?name=Test%20User&email=testuser@gmail.com&password=Test%40123",
+              "raw": "{{base_url}}/auth/register?name=Test User&email=testuser_{{timestamp}}@gmail.com&password=Test@123",
               "host": [
                 "{{base_url}}"
               ],
@@ -59,45 +126,24 @@
                 },
                 {
                   "key": "email",
-                  "value": "testuser@gmail.com"
+                  "value": "testuser_{{timestamp}}@gmail.com"
                 },
                 {
                   "key": "password",
                   "value": "Test@123"
                 }
               ]
-            }
+            },
+            "description": "Create a customer account using the existing registration API."
           }
         },
         {
           "name": "Login",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const data = pm.response.json();",
-                  "",
-                  "if (data.access_token) {",
-                  "    pm.collectionVariables.set('access_token', data.access_token);",
-                  "}",
-                  "",
-                  "if (data.refresh_token) {",
-                  "    pm.collectionVariables.set('refresh_token', data.refresh_token);",
-                  "}",
-                  "",
-                  "console.log('Access token saved');",
-                  "console.log('Refresh token saved');"
-                ]
-              }
-            }
-          ],
           "request": {
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/auth/login?email=testuser@gmail.com&password=Test%40123",
+              "raw": "{{base_url}}/auth/login?email=testuser@gmail.com&password=Test@123",
               "host": [
                 "{{base_url}}"
               ],
@@ -116,32 +162,7 @@
                 }
               ]
             }
-          }
-        },
-        {
-          "name": "Get Current User",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/auth/me",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "auth",
-                "me"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Refresh Token",
+          },
           "event": [
             {
               "listen": "test",
@@ -149,16 +170,40 @@
                 "type": "text/javascript",
                 "exec": [
                   "const data = pm.response.json();",
-                  "",
-                  "if (data.access_token) {",
-                  "    pm.collectionVariables.set('access_token', data.access_token);",
-                  "}",
-                  "",
-                  "console.log('New access token saved');"
+                  "if (data.access_token) pm.collectionVariables.set('access_token', data.access_token);",
+                  "if (data.refresh_token) pm.collectionVariables.set('refresh_token', data.refresh_token);",
+                  "if (data.user_id) pm.collectionVariables.set('user_id', String(data.user_id));",
+                  "console.log('Login tokens saved to collection variables.');"
                 ]
               }
             }
-          ],
+          ]
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me?key=value",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "value"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
           "request": {
             "method": "POST",
             "header": [
@@ -177,7 +222,19 @@
                 "refresh"
               ]
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data.access_token) pm.collectionVariables.set('access_token', data.access_token);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Auth0 Login",
@@ -187,6 +244,10 @@
               {
                 "key": "Authorization",
                 "value": "Bearer {{auth0_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
               }
             ],
             "url": {
@@ -198,8 +259,21 @@
                 "auth",
                 "auth0"
               ]
+            },
+            "description": "Exchange the Auth0 bearer token through the FastAPI Auth0 endpoint."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data.access_token) pm.collectionVariables.set('access_token', data.access_token);"
+                ]
+              }
             }
-          }
+          ]
         }
       ]
     },
@@ -222,8 +296,7 @@
                 "{{base_url}}"
               ],
               "path": [
-                "products",
-                ""
+                "products"
               ]
             }
           }
@@ -261,13 +334,12 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/products/?name=Laptop%20Pro&description=Smart%20E-Commerce%20Laptop&price=50000&stock=20&images=",
+              "raw": "{{base_url}}/products/?name=Laptop Pro&description=Smart E-Commerce Laptop&price=50000&stock_quantity=20&category=Electronics&images=",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
-                "products",
-                ""
+                "products"
               ],
               "query": [
                 {
@@ -283,8 +355,12 @@
                   "value": "50000"
                 },
                 {
-                  "key": "stock",
+                  "key": "stock_quantity",
                   "value": "20"
+                },
+                {
+                  "key": "category",
+                  "value": "Electronics"
                 },
                 {
                   "key": "images",
@@ -305,7 +381,7 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/products/{{product_id}}?name=Updated%20Laptop%20Pro&description=Updated%20Smart%20Laptop&price=55000&stock=15&images=",
+              "raw": "{{base_url}}/products/{{product_id}}?name=Updated Laptop Pro&description=Updated Smart Laptop&price=55000&stock_quantity=15&category=Electronics&images=",
               "host": [
                 "{{base_url}}"
               ],
@@ -327,8 +403,12 @@
                   "value": "55000"
                 },
                 {
-                  "key": "stock",
+                  "key": "stock_quantity",
                   "value": "15"
+                },
+                {
+                  "key": "category",
+                  "value": "Electronics"
                 },
                 {
                   "key": "images",
@@ -373,16 +453,20 @@
               {
                 "key": "Authorization",
                 "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
               }
             ],
             "url": {
-              "raw": "{{base_url}}/cart/?user_id={{user_id}}&product_id={{product_id}}&quantity=1",
+              "raw": "{{base_url}}/cart/add?user_id={{user_id}}&product_id={{product_id}}&quantity=1",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "cart",
-                ""
+                "add"
               ],
               "query": [
                 {
@@ -417,13 +501,48 @@
                 "{{base_url}}"
               ],
               "path": [
-                "cart",
-                ""
+                "cart"
               ],
               "query": [
                 {
                   "key": "user_id",
                   "value": "{{user_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Cart Quantity",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cart/update?cart_item_id={{cart_id}}&quantity=2",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                "update"
+              ],
+              "query": [
+                {
+                  "key": "cart_item_id",
+                  "value": "{{cart_id}}"
+                },
+                {
+                  "key": "quantity",
+                  "value": "2"
                 }
               ]
             }
@@ -440,18 +559,187 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/cart/{{cart_id}}",
+              "raw": "{{base_url}}/cart/remove?cart_item_id={{cart_id}}",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "cart",
-                "{{cart_id}}"
+                "remove"
+              ],
+              "query": [
+                {
+                  "key": "cart_item_id",
+                  "value": "{{cart_id}}"
+                }
               ]
             }
           }
         }
       ]
+    },
+    {
+      "name": "Checkout & Payment",
+      "item": [
+        {
+          "name": "Create Checkout + Payment Intent",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/checkout/?user_id={{user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkout"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "{{user_id}}"
+                }
+              ]
+            },
+            "description": "Creates the order and Stripe PaymentIntent from the user's cart."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data.order_id) pm.collectionVariables.set('order_id', String(data.order_id));",
+                  "if (data.payment_id) pm.collectionVariables.set('payment_id', String(data.payment_id));",
+                  "if (data.stripe_payment_intent_id) pm.collectionVariables.set('stripe_payment_intent_id', data.stripe_payment_intent_id);",
+                  "if (data.client_secret) pm.collectionVariables.set('client_secret', data.client_secret);",
+                  "console.log('Checkout and Stripe PaymentIntent data saved.');"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "Get Notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/notifications/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "notifications"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mark Notification As Read",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/notifications/read?notification_id={{notification_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "notifications",
+                "read"
+              ],
+              "query": [
+                {
+                  "key": "notification_id",
+                  "value": "{{notification_id}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Stripe Webhook",
+      "item": [
+        {
+          "name": "Stripe Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Stripe-Signature",
+                "value": "{{stripe_signature}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/webhook/stripe",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "webhook",
+                "stripe"
+              ]
+            },
+            "description": "Webhook request template. Use a real Stripe event payload/signature when testing webhook verification.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"checkout.session.completed\",\n  \"data\": {\n    \"object\": {}\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.collectionVariables.set('timestamp', Date.now().toString());"
+        ]
+      }
     }
   ]
 }

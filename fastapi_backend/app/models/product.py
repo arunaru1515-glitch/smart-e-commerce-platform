@@ -47,3 +47,8 @@ class Product(Base):
         Boolean,
         default=True
     )
+
+    images = Column(
+        String(500),
+        nullable=True
+    )

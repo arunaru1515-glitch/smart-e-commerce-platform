@@ -5,7 +5,7 @@ from app.database import get_db
 from app.models.cart import Cart
 from app.models.cart_item import CartItem
 from app.models.product import Product
-
+from app.core.security import get_current_user
 from app.services.websocket_service import manager
 
 
@@ -16,17 +16,46 @@ router = APIRouter(
 
 
 # =========================================================
+# GET LOGGED-IN USER ID
+# =========================================================
+
+def get_user_id(current_user):
+    """
+    Supports both dictionary-based and object-based
+    authenticated user responses.
+    """
+
+    if isinstance(current_user, dict):
+        user_id = current_user.get("id") or current_user.get("user_id")
+    else:
+        user_id = getattr(current_user, "id", None)
+
+        if user_id is None:
+            user_id = getattr(current_user, "user_id", None)
+
+    if user_id is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Unable to identify authenticated user"
+        )
+
+    return int(user_id)
+
+
+# =========================================================
 # ADD PRODUCT TO CART
 # POST /cart/add
 # =========================================================
 
 @router.post("/add")
 async def add_to_cart(
-    user_id: int,
     product_id: int,
     quantity: int = 1,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
 ):
+
+    user_id = get_user_id(current_user)
 
     if quantity <= 0:
         raise HTTPException(
@@ -34,7 +63,10 @@ async def add_to_cart(
             detail="Quantity must be greater than 0"
         )
 
+    # -----------------------------------------------------
     # Check product
+    # -----------------------------------------------------
+
     product = db.query(Product).filter(
         Product.id == product_id
     ).first()
@@ -45,19 +77,38 @@ async def add_to_cart(
             detail="Product not found"
         )
 
+    # -----------------------------------------------------
+    # Check product availability
+    # -----------------------------------------------------
+
+    if not product.is_available:
+        raise HTTPException(
+            status_code=400,
+            detail="Product is not available"
+        )
+
+    # -----------------------------------------------------
     # Check stock
+    # -----------------------------------------------------
+
     if product.stock_quantity < quantity:
         raise HTTPException(
             status_code=400,
             detail="Insufficient product stock"
         )
 
+    # -----------------------------------------------------
     # Find user's cart
+    # -----------------------------------------------------
+
     cart = db.query(Cart).filter(
         Cart.user_id == user_id
     ).first()
 
-    # Create cart if user does not have one
+    # -----------------------------------------------------
+    # Create cart if necessary
+    # -----------------------------------------------------
+
     if not cart:
 
         cart = Cart(
@@ -65,10 +116,12 @@ async def add_to_cart(
         )
 
         db.add(cart)
-        db.commit()
-        db.refresh(cart)
+        db.flush()
 
-    # Check whether product already exists
+    # -----------------------------------------------------
+    # Check existing cart item
+    # -----------------------------------------------------
+
     existing_item = db.query(CartItem).filter(
         CartItem.cart_id == cart.id,
         CartItem.product_id == product_id
@@ -89,10 +142,6 @@ async def add_to_cart(
 
         db.commit()
         db.refresh(existing_item)
-
-        # =================================================
-        # REAL-TIME CART UPDATE
-        # =================================================
 
         await manager.send_to_user(
             user_id,
@@ -116,7 +165,10 @@ async def add_to_cart(
             "price": product.price
         }
 
-    # Create new CartItem
+    # -----------------------------------------------------
+    # Create new cart item
+    # -----------------------------------------------------
+
     cart_item = CartItem(
         cart_id=cart.id,
         product_id=product_id,
@@ -127,10 +179,6 @@ async def add_to_cart(
     db.add(cart_item)
     db.commit()
     db.refresh(cart_item)
-
-    # =====================================================
-    # REAL-TIME CART UPDATE
-    # =====================================================
 
     await manager.send_to_user(
         user_id,
@@ -164,8 +212,11 @@ async def add_to_cart(
 async def update_cart(
     cart_item_id: int,
     quantity: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
 ):
+
+    user_id = get_user_id(current_user)
 
     if quantity <= 0:
         raise HTTPException(
@@ -173,7 +224,10 @@ async def update_cart(
             detail="Quantity must be greater than 0"
         )
 
+    # -----------------------------------------------------
     # Find cart item
+    # -----------------------------------------------------
+
     cart_item = db.query(CartItem).filter(
         CartItem.id == cart_item_id
     ).first()
@@ -184,7 +238,34 @@ async def update_cart(
             detail="Cart item not found"
         )
 
+    # -----------------------------------------------------
+    # Find cart
+    # -----------------------------------------------------
+
+    cart = db.query(Cart).filter(
+        Cart.id == cart_item.cart_id
+    ).first()
+
+    if not cart:
+        raise HTTPException(
+            status_code=404,
+            detail="Cart not found"
+        )
+
+    # -----------------------------------------------------
+    # Verify ownership
+    # -----------------------------------------------------
+
+    if cart.user_id != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not allowed to modify this cart"
+        )
+
+    # -----------------------------------------------------
     # Find product
+    # -----------------------------------------------------
+
     product = db.query(Product).filter(
         Product.id == cart_item.product_id
     ).first()
@@ -195,7 +276,10 @@ async def update_cart(
             detail="Product not found"
         )
 
+    # -----------------------------------------------------
     # Check stock
+    # -----------------------------------------------------
+
     if product.stock_quantity < quantity:
         raise HTTPException(
             status_code=400,
@@ -208,31 +292,21 @@ async def update_cart(
     db.commit()
     db.refresh(cart_item)
 
-    # =====================================================
-    # REAL-TIME CART UPDATE
-    # =====================================================
-
-    cart = db.query(Cart).filter(
-        Cart.id == cart_item.cart_id
-    ).first()
-
-    if cart:
-
-        await manager.send_to_user(
-            cart.user_id,
-            {
-                "event": "cart_updated",
-                "cart_id": cart.id,
-                "cart_item_id": cart_item.id,
-                "product_id": cart_item.product_id,
-                "quantity": cart_item.quantity,
-                "action": "quantity_updated"
-            }
-        )
+    await manager.send_to_user(
+        user_id,
+        {
+            "event": "cart_updated",
+            "cart_id": cart.id,
+            "cart_item_id": cart_item.id,
+            "product_id": cart_item.product_id,
+            "quantity": cart_item.quantity,
+            "action": "quantity_updated"
+        }
+    )
 
     return {
         "message": "Cart quantity updated successfully",
-        "cart_id": cart_item.cart_id,
+        "cart_id": cart.id,
         "cart_item_id": cart_item.id,
         "product_id": cart_item.product_id,
         "quantity": cart_item.quantity,
@@ -248,8 +322,15 @@ async def update_cart(
 @router.delete("/remove")
 async def remove_from_cart(
     cart_item_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
 ):
+
+    user_id = get_user_id(current_user)
+
+    # -----------------------------------------------------
+    # Find cart item
+    # -----------------------------------------------------
 
     cart_item = db.query(CartItem).filter(
         CartItem.id == cart_item_id
@@ -261,33 +342,44 @@ async def remove_from_cart(
             detail="Cart item not found"
         )
 
-    cart_id = cart_item.cart_id
+    # -----------------------------------------------------
+    # Find cart
+    # -----------------------------------------------------
 
-    # Find cart before deleting item
     cart = db.query(Cart).filter(
-        Cart.id == cart_id
+        Cart.id == cart_item.cart_id
     ).first()
 
-    user_id = cart.user_id if cart else None
+    if not cart:
+        raise HTTPException(
+            status_code=404,
+            detail="Cart not found"
+        )
+
+    # -----------------------------------------------------
+    # Verify ownership
+    # -----------------------------------------------------
+
+    if cart.user_id != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not allowed to modify this cart"
+        )
+
+    cart_id = cart.id
 
     db.delete(cart_item)
     db.commit()
 
-    # =====================================================
-    # REAL-TIME CART UPDATE
-    # =====================================================
-
-    if user_id:
-
-        await manager.send_to_user(
-            user_id,
-            {
-                "event": "cart_updated",
-                "cart_id": cart_id,
-                "cart_item_id": cart_item_id,
-                "action": "product_removed"
-            }
-        )
+    await manager.send_to_user(
+        user_id,
+        {
+            "event": "cart_updated",
+            "cart_id": cart_id,
+            "cart_item_id": cart_item_id,
+            "action": "product_removed"
+        }
+    )
 
     return {
         "message": "Product removed from cart successfully",
@@ -303,16 +395,20 @@ async def remove_from_cart(
 
 @router.get("/")
 def get_cart(
-    user_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
 ):
 
+    user_id = get_user_id(current_user)
+
+    # -----------------------------------------------------
     # Find user's cart
+    # -----------------------------------------------------
+
     cart = db.query(Cart).filter(
         Cart.user_id == user_id
     ).first()
 
-    # User has no cart
     if not cart:
 
         return {
@@ -324,7 +420,10 @@ def get_cart(
             "grand_total": 0.0
         }
 
+    # -----------------------------------------------------
     # Get cart items
+    # -----------------------------------------------------
+
     cart_items = db.query(CartItem).filter(
         CartItem.cart_id == cart.id
     ).all()
@@ -334,7 +433,6 @@ def get_cart(
 
     for cart_item in cart_items:
 
-        # Find product
         product = db.query(Product).filter(
             Product.id == cart_item.product_id
         ).first()
@@ -342,10 +440,10 @@ def get_cart(
         if not product:
             continue
 
-        # Item total
-        item_total = product.price * cart_item.quantity
+        item_total = (
+            product.price * cart_item.quantity
+        )
 
-        # Cart total
         cart_total += item_total
 
         items.append({
@@ -357,10 +455,16 @@ def get_cart(
             "item_total": item_total
         })
 
-    # Tax is optional
+    # -----------------------------------------------------
+    # Tax
+    # -----------------------------------------------------
+
     tax = 0.0
 
+    # -----------------------------------------------------
     # Grand total
+    # -----------------------------------------------------
+
     grand_total = cart_total + tax
 
     return {

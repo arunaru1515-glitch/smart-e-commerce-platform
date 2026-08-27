@@ -28,9 +28,9 @@ async def update_order_status(
     db: Session = Depends(get_db)
 ):
 
-    # -----------------------------------------------------
+    # =====================================================
     # 1. CHECK ADMIN ACCESS
-    # -----------------------------------------------------
+    # =====================================================
 
     if current_user.role != "admin":
         raise HTTPException(
@@ -38,9 +38,10 @@ async def update_order_status(
             detail="Only admin can update order status"
         )
 
-    # -----------------------------------------------------
+
+    # =====================================================
     # 2. FIND ORDER
-    # -----------------------------------------------------
+    # =====================================================
 
     order = db.query(Order).filter(
         Order.id == order_id
@@ -52,16 +53,19 @@ async def update_order_status(
             detail="Order not found"
         )
 
-    # -----------------------------------------------------
-    # 3. VALIDATE STATUS
-    # -----------------------------------------------------
 
-    allowed_statuses = [
+    # =====================================================
+    # 3. VALIDATE STATUS
+    # =====================================================
+
+    status = status.lower().strip()
+
+    allowed_statuses = {
         "paid",
         "shipped",
         "delivered",
         "cancelled"
-    ]
+    }
 
     if status not in allowed_statuses:
         raise HTTPException(
@@ -72,19 +76,58 @@ async def update_order_status(
             )
         )
 
-    # -----------------------------------------------------
-    # 4. UPDATE ORDER STATUS
-    # -----------------------------------------------------
+
+    # =====================================================
+    # 4. CHECK IF STATUS IS ALREADY SET
+    # =====================================================
+
+    if order.order_status == status:
+
+        return {
+            "message": "Order already has this status",
+            "order_id": order.id,
+            "order_status": order.order_status,
+            "notification_id": None
+        }
+
+
+    # =====================================================
+    # 5. UPDATE ORDER STATUS
+    # =====================================================
 
     order.order_status = status
 
-    # -----------------------------------------------------
-    # 5. CREATE CUSTOMER NOTIFICATION
-    # -----------------------------------------------------
+
+    # =====================================================
+    # 6. UPDATE PAYMENT STATUS WHEN NECESSARY
+    # =====================================================
+
+    if status == "paid":
+        order.payment_status = "paid"
+
+    elif status == "cancelled":
+        if order.payment_status != "paid":
+            order.payment_status = "failed"
+
+
+    # =====================================================
+    # 7. CREATE CUSTOMER NOTIFICATION
+    # =====================================================
 
     notification = None
 
-    if status == "shipped":
+    if status == "paid":
+
+        notification = Notification(
+            user=order.user,
+            type="order_confirmed",
+            message=(
+                f"Your Order #{order.id} has been confirmed."
+            ),
+            read_status="unread"
+        )
+
+    elif status == "shipped":
 
         notification = Notification(
             user=order.user,
@@ -106,34 +149,47 @@ async def update_order_status(
             read_status="unread"
         )
 
-    elif status == "paid":
+    elif status == "cancelled":
 
         notification = Notification(
             user=order.user,
-            type="order_confirmed",
+            type="order_cancelled",
             message=(
-                f"Your Order #{order.id} has been confirmed."
+                f"Your Order #{order.id} has been cancelled."
             ),
             read_status="unread"
         )
 
-    # -----------------------------------------------------
-    # 6. SAVE CHANGES
-    # -----------------------------------------------------
+
+    # =====================================================
+    # 8. SAVE CHANGES
+    # =====================================================
 
     if notification:
         db.add(notification)
 
-    db.commit()
+    try:
 
-    db.refresh(order)
+        db.commit()
 
-    if notification:
-        db.refresh(notification)
+        db.refresh(order)
 
-    # -----------------------------------------------------
-    # 7. SEND REAL-TIME ORDER UPDATE
-    # -----------------------------------------------------
+        if notification:
+            db.refresh(notification)
+
+    except Exception as e:
+
+        db.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error: {str(e)}"
+        )
+
+
+    # =====================================================
+    # 9. SEND REAL-TIME ORDER UPDATE
+    # =====================================================
 
     await manager.send_to_user(
         order.user,
@@ -144,14 +200,16 @@ async def update_order_status(
         }
     )
 
-    # -----------------------------------------------------
-    # 8. RESPONSE
-    # -----------------------------------------------------
+
+    # =====================================================
+    # 10. RESPONSE
+    # =====================================================
 
     return {
         "message": "Order status updated successfully",
         "order_id": order.id,
         "order_status": order.order_status,
+        "payment_status": order.payment_status,
         "notification_id": (
             notification.id
             if notification

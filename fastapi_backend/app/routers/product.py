@@ -28,37 +28,32 @@ def get_products(
 ):
     query = db.query(Product)
 
-    # Category filter
     if category:
         query = query.filter(
             Product.category == category
         )
 
-    # Minimum price filter
     if min_price is not None:
         query = query.filter(
             Product.price >= min_price
         )
 
-    # Maximum price filter
     if max_price is not None:
         query = query.filter(
             Product.price <= max_price
         )
 
-    # Popularity filter
     if min_popularity is not None:
         query = query.filter(
             Product.popularity >= min_popularity
         )
 
-    # Stock availability filter
     if in_stock is True:
         query = query.filter(
             Product.stock_quantity > 0
         )
 
-    if in_stock is False:
+    elif in_stock is False:
         query = query.filter(
             Product.stock_quantity == 0
         )
@@ -134,7 +129,6 @@ def create_product(
         name=name,
         description=description,
         price=price,
-        stock=stock,
         category=category,
         popularity=popularity,
         stock_quantity=stock,
@@ -182,7 +176,6 @@ def update_product(
     product.name = name
     product.description = description
     product.price = price
-    product.stock = stock
     product.category = category
     product.popularity = popularity
     product.stock_quantity = stock

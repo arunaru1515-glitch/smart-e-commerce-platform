@@ -476,7 +476,7 @@ useEffect(() => {
   if (!backendToken) return;
 
   const ws = new WebSocket(
-    `ws://127.0.0.1:8000/ws/9`
+    `ws://127.0.0.1:8000/ws/${backendUser?.user_id || backendUser?.id}`
   );
 
   websocketRef.current = ws;
@@ -563,13 +563,6 @@ useEffect(() => {
         return;
       }
 
-      const userId = userData.user_id;
-
-      console.log(
-        "Adding product for User ID:",
-        userId
-      );
-
       // =====================================================
       // STEP 2: ADD PRODUCT TO CART
       // Backend endpoint:
@@ -577,7 +570,7 @@ useEffect(() => {
       // =====================================================
 
       const response = await fetch(
-        `http://127.0.0.1:8000/cart/add?user_id=${userId}&product_id=${productId}&quantity=1`,
+        `http://127.0.0.1:8000/cart/add?user_id=${userData.user_id}&product_id=${productId}&quantity=1`,
         {
           method: "POST",
           headers: {
@@ -1072,7 +1065,7 @@ useEffect(() => {
 
                   <p>
                     Stock:{" "}
-                    {product.stock}
+                    {product.stock_quantity}
                   </p>
 
                   <button

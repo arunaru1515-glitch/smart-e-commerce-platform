@@ -12,8 +12,11 @@ from app.models.order import Order
 from app.models.payment import Payment
 from app.models.notification import Notification
 from app.models.user import User
+from app.models.cart import Cart
+from app.models.cart_item import CartItem
+from app.models.product import Product
 
-from app.services.email_service import send_email
+from app.services.email_service import send_order_status_email
 
 
 # =========================================================
@@ -24,7 +27,7 @@ load_dotenv()
 
 
 # =========================================================
-# Stripe Webhook Router
+# STRIPE WEBHOOK ROUTER
 # =========================================================
 
 router = APIRouter(
@@ -34,14 +37,15 @@ router = APIRouter(
 
 
 # =========================================================
-# Stripe Configuration
+# STRIPE CONFIGURATION
 # =========================================================
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 
 # =========================================================
-# Stripe Webhook Endpoint
+# STRIPE WEBHOOK ENDPOINT
+# POST /webhook/stripe
 # =========================================================
 
 @router.post("/stripe")
@@ -51,7 +55,7 @@ async def stripe_webhook(
 ):
 
     # =====================================================
-    # Read Raw Stripe Webhook Payload
+    # 1. READ RAW STRIPE PAYLOAD
     # =====================================================
 
     payload = await request.body()
@@ -66,8 +70,15 @@ async def stripe_webhook(
             detail="Stripe webhook secret is not configured"
         )
 
+    if not signature:
+        raise HTTPException(
+            status_code=400,
+            detail="Stripe signature is missing"
+        )
+
+
     # =====================================================
-    # Verify Stripe Webhook Signature
+    # 2. VERIFY STRIPE WEBHOOK
     # =====================================================
 
     try:
@@ -92,8 +103,9 @@ async def stripe_webhook(
             detail="Invalid webhook signature"
         )
 
+
     # =====================================================
-    # Payment Intent Succeeded
+    # 3. PAYMENT INTENT SUCCEEDED
     # =====================================================
 
     if event["type"] == "payment_intent.succeeded":
@@ -102,8 +114,9 @@ async def stripe_webhook(
 
         stripe_payment_intent_id = payment_intent["id"]
 
+
         # =================================================
-        # Find Payment
+        # FIND PAYMENT
         # =================================================
 
         payment = db.query(Payment).filter(
@@ -111,44 +124,122 @@ async def stripe_webhook(
         ).first()
 
         if not payment:
-
             raise HTTPException(
                 status_code=404,
                 detail="Payment record not found"
             )
 
-        # =================================================
-        # Get Order
-        # =================================================
 
-        order_id = payment.order_id
+        # =================================================
+        # FIND ORDER
+        # =================================================
 
         order = db.query(Order).filter(
-            Order.id == order_id
+            Order.id == payment.order_id
         ).first()
 
         if not order:
-
             raise HTTPException(
                 status_code=404,
                 detail="Order not found"
             )
 
+
         # =================================================
-        # Update Payment Status
+        # GET USER
+        # =================================================
+
+        user = db.query(User).filter(
+            User.id == order.user
+        ).first()
+
+
+        # =================================================
+        # PREVENT DUPLICATE PROCESSING
+        # =================================================
+
+        if payment.status == "paid":
+
+            return {
+                "message": "Payment already processed",
+                "order_id": order.id,
+                "payment_id": payment.id,
+                "payment_status": payment.status,
+                "order_payment_status": order.payment_status,
+                "order_status": order.order_status
+            }
+
+
+        # =================================================
+        # UPDATE PAYMENT STATUS
         # =================================================
 
         payment.status = "paid"
 
+
         # =================================================
-        # Update Order Status
+        # UPDATE ORDER STATUS
         # =================================================
 
         order.payment_status = "paid"
         order.order_status = "paid"
 
+
         # =================================================
-        # Create Payment Success Notification
+        # FIND USER CART
+        # =================================================
+
+        cart = db.query(Cart).filter(
+            Cart.user_id == order.user
+        ).first()
+
+
+        # =================================================
+        # GET CART ITEMS
+        # =================================================
+
+        cart_items = []
+
+        if cart:
+
+            cart_items = db.query(CartItem).filter(
+                CartItem.cart_id == cart.id
+            ).all()
+
+
+        # =================================================
+        # REDUCE PRODUCT STOCK
+        # =================================================
+
+        for cart_item in cart_items:
+
+            product = db.query(Product).filter(
+                Product.id == cart_item.product_id
+            ).first()
+
+            if product:
+
+                product.stock_quantity = max(
+                    0,
+                    product.stock_quantity - cart_item.quantity
+                )
+
+                product.is_available = (
+                    product.stock_quantity > 0
+                )
+
+
+        # =================================================
+        # CLEAR CART AFTER SUCCESSFUL PAYMENT
+        # =================================================
+
+        for cart_item in cart_items:
+
+            db.delete(cart_item)
+
+
+        # =================================================
+        # CREATE SUCCESS NOTIFICATION
         # =================================================
 
         notification = Notification(
@@ -163,49 +254,56 @@ async def stripe_webhook(
 
         db.add(notification)
 
-        # =================================================
-        # Save Changes
-        # =================================================
-
-        db.commit()
 
         # =================================================
-        # Refresh Database Objects
+        # SAVE DATABASE CHANGES
         # =================================================
 
-        db.refresh(payment)
-        db.refresh(order)
-        db.refresh(notification)
+        try:
+
+            db.commit()
+
+            db.refresh(payment)
+            db.refresh(order)
+            db.refresh(notification)
+
+        except Exception as e:
+
+            db.rollback()
+
+            raise HTTPException(
+                status_code=500,
+                detail=f"Database error: {str(e)}"
+            )
+
 
         # =================================================
-        # GET USER
+        # SEND SUCCESS EMAIL
         # =================================================
 
-        user = db.query(User).filter(
-            User.id == order.user
-        ).first()
-
-        # =================================================
-        # SEND PAYMENT SUCCESS EMAIL
-        # =================================================
+        email_sent = False
 
         if user and user.email:
 
-            send_email(
-                to_email=user.email,
-                subject="Payment Successful - Smart E-Commerce Platform",
-                message=(
-                    f"Hello,\n\n"
-                    f"Your payment was successful.\n\n"
-                    f"Order ID: #{order.id}\n"
-                    f"Amount: ₹{payment.amount}\n"
-                    f"Payment Status: Paid\n\n"
-                    f"Thank you for shopping with us."
+            try:
+
+                send_order_status_email(
+                    to_email=user.email,
+                    order_id=order.id,
+                    status="paid"
                 )
-            )
+
+                email_sent = True
+
+            except Exception as e:
+
+                print(
+                    f"Email sending failed: {str(e)}"
+                )
+
 
         # =================================================
-        # Success Response
+        # SUCCESS RESPONSE
         # =================================================
 
         return {
@@ -215,11 +313,15 @@ async def stripe_webhook(
             "notification_id": notification.id,
             "payment_status": payment.status,
             "order_payment_status": order.payment_status,
-            "order_status": order.order_status
+            "order_status": order.order_status,
+            "stock_updated": True,
+            "cart_cleared": True,
+            "email_sent": email_sent
         }
 
+
     # =====================================================
-    # Payment Intent Failed
+    # 4. PAYMENT INTENT FAILED
     # =====================================================
 
     if event["type"] == "payment_intent.payment_failed":
@@ -228,65 +330,79 @@ async def stripe_webhook(
 
         stripe_payment_intent_id = payment_intent["id"]
 
+
         # =================================================
-        # Find Payment
+        # FIND PAYMENT
         # =================================================
 
         payment = db.query(Payment).filter(
             Payment.transaction_id == stripe_payment_intent_id
         ).first()
 
-        if payment:
+        if not payment:
 
-            # =============================================
-            # Update Payment Status
-            # =============================================
+            return {
+                "message": "Payment record not found",
+                "payment_id": stripe_payment_intent_id
+            }
 
-            payment.status = "failed"
 
-            # =============================================
-            # Get Order
-            # =============================================
+        # =================================================
+        # FIND ORDER
+        # =================================================
 
-            order = db.query(Order).filter(
-                Order.id == payment.order_id
+        order = db.query(Order).filter(
+            Order.id == payment.order_id
+        ).first()
+
+
+        # =================================================
+        # UPDATE PAYMENT
+        # =================================================
+
+        payment.status = "failed"
+
+        notification = None
+        user = None
+
+
+        # =================================================
+        # UPDATE ORDER
+        # =================================================
+
+        if order:
+
+            order.payment_status = "failed"
+
+            user = db.query(User).filter(
+                User.id == order.user
             ).first()
 
-            notification = None
-
-            if order:
-
-                # =========================================
-                # Update Order Payment Status
-                # =========================================
-
-                order.payment_status = "failed"
-
-                # =========================================
-                # Create Payment Failed Notification
-                # =========================================
-
-                notification = Notification(
-                    user=order.user,
-                    type="payment_failed",
-                    message=(
-                        f"Payment failed for Order #{order.id}. "
-                        f"Please try again."
-                    ),
-                    read_status="unread"
-                )
-
-                db.add(notification)
 
             # =============================================
-            # Save Changes
+            # CREATE FAILURE NOTIFICATION
             # =============================================
+
+            notification = Notification(
+                user=order.user,
+                type="payment_failed",
+                message=(
+                    f"Payment failed for Order #{order.id}. "
+                    f"Please try again."
+                ),
+                read_status="unread"
+            )
+
+            db.add(notification)
+
+
+        # =================================================
+        # SAVE DATABASE CHANGES
+        # =================================================
+
+        try:
 
             db.commit()
-
-            # =============================================
-            # Refresh Objects
-            # =============================================
 
             db.refresh(payment)
 
@@ -296,42 +412,70 @@ async def stripe_webhook(
             if notification:
                 db.refresh(notification)
 
-            # =============================================
-            # Response
-            # =============================================
+        except Exception as e:
 
-            return {
-                "message": "Payment failed",
-                "payment_id": payment.id,
-                "order_id": (
-                    order.id
-                    if order
-                    else None
-                ),
-                "notification_id": (
-                    notification.id
-                    if notification
-                    else None
-                ),
-                "payment_status": payment.status,
-                "order_payment_status": (
-                    order.payment_status
-                    if order
-                    else None
-                )
-            }
+            db.rollback()
+
+            raise HTTPException(
+                status_code=500,
+                detail=f"Database error: {str(e)}"
+            )
+
 
         # =================================================
-        # Payment Record Not Found
+        # SEND FAILURE EMAIL
+        # =================================================
+
+        email_sent = False
+
+        if user and user.email and order:
+
+            try:
+
+                send_order_status_email(
+                    to_email=user.email,
+                    order_id=order.id,
+                    status="failed"
+                )
+
+                email_sent = True
+
+            except Exception as e:
+
+                print(
+                    f"Email sending failed: {str(e)}"
+                )
+
+
+        # =================================================
+        # FAILURE RESPONSE
         # =================================================
 
         return {
-            "message": "Payment record not found",
-            "payment_id": stripe_payment_intent_id
+            "message": "Payment failed",
+            "payment_id": payment.id,
+            "order_id": (
+                order.id
+                if order
+                else None
+            ),
+            "notification_id": (
+                notification.id
+                if notification
+                else None
+            ),
+            "payment_status": payment.status,
+            "order_payment_status": (
+                order.payment_status
+                if order
+                else None
+            ),
+            "email_sent": email_sent
         }
 
+
     # =====================================================
-    # Other Stripe Events
+    # 5. OTHER STRIPE EVENTS
     # =====================================================
 
     return {

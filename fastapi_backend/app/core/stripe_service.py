@@ -16,7 +16,14 @@ load_dotenv()
 # STRIPE CONFIGURATION
 # =========================================================
 
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
+
+if not STRIPE_SECRET_KEY:
+    raise RuntimeError(
+        "STRIPE_SECRET_KEY is missing in .env"
+    )
+
+stripe.api_key = STRIPE_SECRET_KEY
 
 
 # =========================================================
@@ -34,8 +41,15 @@ def create_payment_intent(
     currency unit. For INR, this means paise.
     """
 
+    amount_decimal = Decimal(str(amount))
+
+    if amount_decimal <= Decimal("0.00"):
+        raise ValueError(
+            "Payment amount must be greater than zero"
+        )
+
     amount_in_paise = int(
-        Decimal(str(amount)) * 100
+        amount_decimal * 100
     )
 
     payment_intent = stripe.PaymentIntent.create(
