@@ -1,0 +1,255 @@
+/* =========================================================
+   SMART E-COMMERCE - HEADER
+   ========================================================= */
+
+.app-header {
+    width: 100%;
+    min-height: 82px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0 55px;
+
+    background: #ffffff;
+
+    border-bottom: 1px solid #e5e7eb;
+
+    box-shadow:
+        0 4px 18px rgba(15, 23, 42, 0.06);
+
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+
+/* =========================================================
+   BRAND
+   ========================================================= */
+
+.header-brand {
+    display: flex;
+    align-items: center;
+
+    gap: 14px;
+}
+
+.header-logo {
+    width: 48px;
+    height: 48px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 14px;
+
+    background: #2563eb;
+
+    font-size: 23px;
+
+    box-shadow:
+        0 7px 18px rgba(37, 99, 235, 0.22);
+}
+
+.header-brand-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.header-brand-text h1 {
+    margin: 0;
+
+    color: #111827;
+
+    font-size: 21px;
+
+    font-weight: 800;
+
+    line-height: 1.2;
+
+    letter-spacing: -0.5px;
+}
+
+.header-brand-text span {
+    margin-top: 4px;
+
+    color: #64748b;
+
+    font-size: 11px;
+
+    font-weight: 500;
+
+    letter-spacing: 0.3px;
+}
+
+
+/* =========================================================
+   HEADER ACTIONS
+   ========================================================= */
+
+.header-actions {
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+}
+
+
+/* =========================================================
+   NAVIGATION BUTTONS
+   ========================================================= */
+
+.header-nav-button {
+    height: 42px;
+
+    padding: 0 17px;
+
+    border: none;
+
+    border-radius: 9px;
+
+    background: transparent;
+
+    color: #475569;
+
+    font-size: 14px;
+
+    font-weight: 600;
+
+    transition:
+        background 0.2s ease,
+        color 0.2s ease;
+}
+
+.header-nav-button:hover {
+    background: #eff6ff;
+
+    color: #2563eb;
+}
+
+
+/* =========================================================
+   AUTHENTICATE
+   ========================================================= */
+
+.header-auth-button {
+    height: 42px;
+
+    padding: 0 21px;
+
+    border: none;
+
+    border-radius: 9px;
+
+    background: #2563eb;
+
+    color: #ffffff;
+
+    font-size: 14px;
+
+    font-weight: 650;
+
+    transition:
+        background 0.2s ease,
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.header-auth-button:hover {
+    background: #1d4ed8;
+
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 7px 18px rgba(37, 99, 235, 0.22);
+}
+
+
+/* =========================================================
+   LOGOUT
+   ========================================================= */
+
+.header-logout-button {
+    height: 42px;
+
+    padding: 0 18px;
+
+    margin-left: 5px;
+
+    border: 1px solid #e2e8f0;
+
+    border-radius: 9px;
+
+    background: #ffffff;
+
+    color: #475569;
+
+    font-size: 14px;
+
+    font-weight: 600;
+
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease,
+        color 0.2s ease;
+}
+
+.header-logout-button:hover {
+    background: #fef2f2;
+
+    border-color: #fecaca;
+
+    color: #dc2626;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 900px) {
+
+    .app-header {
+        padding: 0 25px;
+    }
+
+    .header-nav-button {
+        padding: 0 11px;
+    }
+
+    .header-brand-text h1 {
+        font-size: 18px;
+    }
+}
+
+
+@media (max-width: 700px) {
+
+    .app-header {
+        padding: 15px 20px;
+
+        flex-direction: column;
+
+        gap: 14px;
+    }
+
+    .header-actions {
+        width: 100%;
+
+        justify-content: center;
+
+        flex-wrap: wrap;
+    }
+
+    .header-nav-button,
+    .header-auth-button,
+    .header-logout-button {
+        height: 38px;
+
+        font-size: 13px;
+    }
+}

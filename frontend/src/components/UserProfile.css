@@ -1,0 +1,245 @@
+/* =========================================================
+   USER PROFILE
+   ========================================================= */
+
+.profile {
+    width: 100%;
+    max-width: 900px;
+
+    margin: 30px auto;
+
+    padding: 32px;
+
+    background: #ffffff;
+
+    border: 1px solid #e2e8f0;
+
+    border-radius: 18px;
+
+    box-shadow:
+        0 8px 28px rgba(15, 23, 42, 0.07);
+}
+
+
+/* =========================================================
+   PROFILE HEADER
+   ========================================================= */
+
+.profile-header {
+    display: flex;
+
+    align-items: center;
+
+    gap: 18px;
+
+    padding-bottom: 25px;
+
+    margin-bottom: 25px;
+
+    border-bottom: 1px solid #e5e7eb;
+}
+
+
+.profile-avatar {
+    width: 64px;
+    height: 64px;
+
+    flex-shrink: 0;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: #2563eb;
+
+    color: #ffffff;
+
+    font-size: 27px;
+
+    font-weight: 700;
+
+    box-shadow:
+        0 8px 18px rgba(37, 99, 235, 0.22);
+}
+
+
+.profile-header h2 {
+    margin: 0 0 5px;
+
+    font-size: 24px;
+
+    font-weight: 750;
+
+    color: #111827;
+}
+
+
+.profile-header p {
+    margin: 0;
+
+    font-size: 14px;
+
+    color: #64748b;
+}
+
+
+/* =========================================================
+   PROFILE IMAGE
+   ========================================================= */
+
+.profile-image {
+    display: block;
+
+    width: 90px;
+    height: 90px;
+
+    margin: 0 auto 25px;
+
+    object-fit: cover;
+
+    border-radius: 50%;
+
+    border: 4px solid #eff6ff;
+
+    box-shadow:
+        0 6px 18px rgba(15, 23, 42, 0.10);
+}
+
+
+/* =========================================================
+   PROFILE DETAILS
+   ========================================================= */
+
+.profile-details {
+    display: grid;
+
+    grid-template-columns:
+        repeat(3, 1fr);
+
+    gap: 18px;
+}
+
+
+.profile-detail {
+    min-height: 105px;
+
+    display: flex;
+
+    flex-direction: column;
+
+    justify-content: center;
+
+    padding: 20px;
+
+    background: #f8fafc;
+
+    border: 1px solid #e2e8f0;
+
+    border-radius: 12px;
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        border-color 0.2s ease;
+}
+
+
+.profile-detail:hover {
+    transform: translateY(-2px);
+
+    border-color: #bfdbfe;
+
+    box-shadow:
+        0 6px 18px rgba(15, 23, 42, 0.06);
+}
+
+
+.profile-detail span {
+    margin-bottom: 8px;
+
+    color: #64748b;
+
+    font-size: 13px;
+
+    font-weight: 600;
+
+    text-transform: uppercase;
+
+    letter-spacing: 0.5px;
+}
+
+
+.profile-detail strong {
+    color: #111827;
+
+    font-size: 16px;
+
+    font-weight: 650;
+
+    word-break: break-word;
+}
+
+
+/* =========================================================
+   AUTH0 ID
+   ========================================================= */
+
+.profile-id {
+    color: #475569 !important;
+
+    font-size: 13px !important;
+
+    font-weight: 500 !important;
+
+    line-height: 1.5;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 800px) {
+
+    .profile {
+        margin: 25px 16px;
+
+        padding: 25px;
+    }
+
+    .profile-details {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+@media (max-width: 500px) {
+
+    .profile {
+        padding: 20px;
+    }
+
+    .profile-header {
+        gap: 13px;
+    }
+
+    .profile-avatar {
+        width: 54px;
+        height: 54px;
+
+        font-size: 23px;
+    }
+
+    .profile-header h2 {
+        font-size: 21px;
+    }
+
+    .profile-detail {
+        min-height: 90px;
+
+        padding: 17px;
+    }
+}

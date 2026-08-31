@@ -1,1127 +1,1225 @@
 import { useAuth0 } from "@auth0/auth0-react";
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
+
 import {
-  BrowserRouter,
-  Routes,
-  Route,
-  useNavigate,
+    BrowserRouter,
+    Routes,
+    Route,
+    useNavigate,
 } from "react-router-dom";
 
 import "./App.css";
-import Cart from "./Cart";
 
-// =========================================================
-// HOME / PRODUCTS PAGE
-// =========================================================
+import Home from "./pages/Home";
+import CartPage from "./pages/CartPage";
+import OrdersPage from "./pages/OrdersPage";
 
-function Home() {
-  const {
-    isAuthenticated,
-    isLoading,
-    user,
-    loginWithRedirect,
-    logout,
-    getAccessTokenSilently,
-  } = useAuth0();
 
-  const navigate = useNavigate();
+/* =========================================================
+   API
+   ========================================================= */
 
-  const [products, setProducts] = useState([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
+const API_URL = "http://127.0.0.1:8000";
 
-  // FastAPI JWT
-  const [backendToken, setBackendToken] = useState(
-    localStorage.getItem("backendToken")
-  );
 
-  // Local FastAPI login
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
-  const [backendUser, setBackendUser] = useState(null);
+/* =========================================================
+   HOME CONTAINER
+   ========================================================= */
 
-  // =========================================================
-  // NOTIFICATIONS - ASSESSMENT 6
-  // =========================================================
+function HomeContainer() {
 
-  const [notifications, setNotifications] = useState([]);
-  const [notificationOpen, setNotificationOpen] = useState(false);
-  const [loadingNotifications, setLoadingNotifications] =
-    useState(false);
+    const {
+        isAuthenticated,
+        isLoading,
+        user,
+        loginWithRedirect,
+        logout,
+        getAccessTokenSilently,
+    } = useAuth0();
 
-  const notificationRef = useRef(null);
-  const websocketRef = useRef(null);
+    const navigate = useNavigate();
 
-  // =========================================================
-  // NORMAL EMAIL / PASSWORD LOGIN
-  // =========================================================
 
-  const handleLogin = async () => {
-    if (!loginEmail || !loginPassword) {
-      alert("Please enter email and password");
-      return;
-    }
+    /* =====================================================
+       FASTAPI TOKEN
+       ===================================================== */
 
-    try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/auth/login?email=${encodeURIComponent(
-          loginEmail
-        )}&password=${encodeURIComponent(loginPassword)}`,
-        {
-          method: "POST",
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        alert(data.detail || "Invalid email or password");
-        return;
-      }
-
-      // Save FastAPI JWT
-      setBackendToken(data.access_token);
-      localStorage.setItem("backendToken", data.access_token);
-
-      // Get current FastAPI user
-      const userResponse = await fetch(
-        "http://127.0.0.1:8000/auth/me",
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${data.access_token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      const userData = await userResponse.json();
-
-      if (userResponse.ok) {
-        setBackendUser(userData);
-      }
-
-      setLoginEmail("");
-      setLoginPassword("");
-
-    } catch (error) {
-      console.error("Login error:", error);
-      alert("Could not connect to backend");
-    }
-  };
-
-  // =========================================================
-  // GOOGLE LOGIN
-  // =========================================================
-
-  const handleGoogleLogin = async () => {
-    await loginWithRedirect({
-      authorizationParams: {
-        connection: "google-oauth2",
-        audience: "https://smart-ecommerce-api",
-        scope: "openid profile email",
-      },
-    });
-  };
-
-  // =========================================================
-  // FACEBOOK LOGIN
-  // =========================================================
-
-  const handleFacebookLogin = async () => {
-    await loginWithRedirect({
-      authorizationParams: {
-        connection: "facebook",
-        audience: "https://smart-ecommerce-api",
-        scope: "openid profile email",
-      },
-    });
-  };
-
-  // =========================================================
-  // LOGOUT
-  // =========================================================
-
-  const handleLogout = () => {
-    localStorage.removeItem("backendToken");
-
-    setBackendToken(null);
-    setBackendUser(null);
-    setProducts([]);
-    setNotifications([]);
-
-    // Only perform Auth0 logout when an Auth0 session exists.
-    if (isAuthenticated) {
-      logout({
-        logoutParams: {
-          returnTo: window.location.origin,
-        },
-      });
-    }
-  };
-
-  // =========================================================
-  // AUTHENTICATE AUTH0 USER WITH FASTAPI
-  // =========================================================
-
-  const authenticateWithBackend = async () => {
-    try {
-      const auth0Token = await getAccessTokenSilently({
-        authorizationParams: {
-          audience: "https://smart-ecommerce-api",
-          scope: "openid profile email",
-        },
-      });
-
-      console.log("Auth0 Access Token received");
-
-      const response = await fetch(
-        "http://127.0.0.1:8000/auth/auth0",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${auth0Token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      const data = await response.json();
-
-      console.log("FastAPI Auth0 Response:", data);
-
-      if (!response.ok) {
-        alert(
-          data.detail ||
-            "Backend authentication failed"
-        );
-
-        return null;
-      }
-
-      // Save FastAPI JWT in React state
-      setBackendToken(data.access_token);
-
-      // Save FastAPI JWT in localStorage
-      localStorage.setItem(
-        "backendToken",
-        data.access_token
-      );
-
-      console.log("FastAPI JWT received");
-
-      return data.access_token;
-    } catch (error) {
-      console.error(
-        "Backend authentication error:",
-        error
-      );
-
-      alert("Could not connect to backend");
-
-      return null;
-    }
-  };
-
-  // =========================================================
-  // AUTHENTICATE BUTTON
-  // =========================================================
-
-  const handleBackendLogin = async () => {
-    const token =
-      await authenticateWithBackend();
-
-    if (token) {
-      alert(
-        "Successfully authenticated with FastAPI!"
-      );
-
-      await fetchProducts(token);
-      await fetchNotifications(token);
-    }
-  };
-
-  // =========================================================
-  // FETCH PRODUCTS
-  // =========================================================
-
-  const fetchProducts = async (token) => {
-    try {
-      setLoadingProducts(true);
-
-      if (!token) {
-        console.error(
-          "No FastAPI token available"
-        );
-
-        return;
-      }
-
-      const response = await fetch(
-        "http://127.0.0.1:8000/products/",
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      const data = await response.json();
-
-      console.log(
-        "Products API Response:",
-        data
-      );
-
-      if (!response.ok) {
-        console.error(
-          "Product fetch failed:",
-          data
-        );
-
-        return;
-      }
-
-      setProducts(data);
-    } catch (error) {
-      console.error(
-        "Error fetching products:",
-        error
-      );
-    } finally {
-      setLoadingProducts(false);
-    }
-  };
-
-  // =========================================================
-  // FETCH NOTIFICATIONS
-  // =========================================================
-
-  const fetchNotifications = async (
-    token = backendToken
-  ) => {
-    try {
-      if (!token) {
-        setNotifications([]);
-        return;
-      }
-
-      setLoadingNotifications(true);
-
-      const response = await fetch(
-        "http://127.0.0.1:8000/notifications/",
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      const data = await response.json();
-
-      console.log(
-        "Notifications API Response:",
-        data
-      );
-
-      if (!response.ok) {
-        console.error(
-          "Notification fetch failed:",
-          data
-        );
-
-        setNotifications([]);
-        return;
-      }
-
-      // Supports both:
-      // [...]
-      // { notifications: [...] }
-
-      const notificationList =
-        Array.isArray(data)
-          ? data
-          : Array.isArray(data.notifications)
-          ? data.notifications
-          : [];
-
-      setNotifications(notificationList);
-    } catch (error) {
-      console.error(
-        "Notification loading error:",
-        error
-      );
-
-      setNotifications([]);
-    } finally {
-      setLoadingNotifications(false);
-    }
-  };
-
-  // =========================================================
-  // MARK NOTIFICATION AS READ
-  // =========================================================
-
-  const markNotificationAsRead = async (
-    notificationId
-  ) => {
-    try {
-      if (!backendToken || !notificationId) {
-        return;
-      }
-
-      const response = await fetch(
-        `http://127.0.0.1:8000/notifications/read?notification_id=${notificationId}`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${backendToken}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      const data = await response.json();
-
-      console.log(
-        "Mark Notification Read Response:",
-        data
-      );
-
-      if (!response.ok) {
-        console.error(
-          "Failed to mark notification as read:",
-          data
-        );
-
-        return;
-      }
-
-      // Update notification immediately in UI
-      setNotifications((previous) =>
-        previous.map((notification) => {
-          const currentId =
-            notification.notification_id ??
-            notification.id;
-
-          if (
-            String(currentId) ===
-            String(notificationId)
-          ) {
-            return {
-              ...notification,
-              is_read: true,
-              read: true,
-              status: "read",
-            };
-          }
-
-          return notification;
-        })
-      );
-    } catch (error) {
-      console.error(
-        "Mark notification read error:",
-        error
-      );
-    }
-  };
-
-  // =========================================================
-  // NOTIFICATION CLICK
-  // =========================================================
-
-  const handleNotificationClick = async (
-    notification
-  ) => {
-    const notificationId =
-      notification.notification_id ??
-      notification.id;
-
-    const alreadyRead =
-      notification.is_read === true ||
-      notification.read === true ||
-      notification.status === "read";
-
-    if (
-      !alreadyRead &&
-      notificationId
-    ) {
-      await markNotificationAsRead(
-        notificationId
-      );
-    }
-  };
-
-  // =========================================================
-  // AUTOMATICALLY LOAD PRODUCTS + NOTIFICATIONS
-  // =========================================================
-
-  useEffect(() => {
-    if (backendToken) {
-      fetchProducts(backendToken);
-      fetchNotifications(backendToken);
-    }
-  }, [backendToken]);
-  
-
-  // =========================================================
-// WEBSOCKET - REAL-TIME NOTIFICATIONS
-// =========================================================
-
-useEffect(() => {
-  if (!backendToken) return;
-
-  const ws = new WebSocket(
-    `ws://127.0.0.1:8000/ws/${backendUser?.user_id || backendUser?.id}`
-  );
-
-  websocketRef.current = ws;
-
-  ws.onopen = () => {
-    console.log("WebSocket connected");
-  };
-
-  ws.onmessage = (event) => {
-    try {
-      const notification = JSON.parse(event.data);
-
-      setNotifications((prev) => [
-        notification,
-        ...prev
-      ]);
-    } catch (error) {
-      console.error(
-        "Notification parsing error:",
-        error
-      );
-    }
-  };
-
-  ws.onclose = () => {
-    console.log("WebSocket disconnected");
-  };
-
-  ws.onerror = (error) => {
-    console.error(
-      "WebSocket error:",
-      error
+    const [backendToken, setBackendToken] = useState(
+        localStorage.getItem("backendToken")
     );
-  };
 
-  return () => {
-    ws.close();
-  };
-}, [backendToken]);
 
-  // =========================================================
-  // ADD PRODUCT TO CART
-  // =========================================================
+    /* =====================================================
+       BACKEND USER
+       ===================================================== */
 
-  const addToCart = async (productId) => {
-    try {
-      if (!backendToken) {
-        alert(
-          "Please authenticate with FastAPI first"
-        );
+    const [backendUser, setBackendUser] = useState(null);
 
-        return;
-      }
 
-      // =====================================================
-      // STEP 1: GET CURRENT USER
-      // =====================================================
+    /* =====================================================
+       LOGIN FORM
+       ===================================================== */
 
-      const userResponse = await fetch(
-        "http://127.0.0.1:8000/auth/me",
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${backendToken}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+    const [loginEmail, setLoginEmail] = useState("");
+    const [loginPassword, setLoginPassword] = useState("");
 
-      const userData =
-        await userResponse.json();
 
-      console.log(
-        "Current User:",
-        userData
-      );
+    /* =====================================================
+       PRODUCTS
+       ===================================================== */
 
-      if (!userResponse.ok) {
-        alert(
-          userData.detail ||
-            "Unable to get current user"
-        );
+    const [products, setProducts] = useState([]);
 
-        return;
-      }
+    const [loadingProducts, setLoadingProducts] =
+        useState(false);
 
-      // =====================================================
-      // STEP 2: ADD PRODUCT TO CART
-      // Backend endpoint:
-      // POST /cart/add
-      // =====================================================
 
-      const response = await fetch(
-        `http://127.0.0.1:8000/cart/add?user_id=${userData.user_id}&product_id=${productId}&quantity=1`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${backendToken}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+    /* =====================================================
+       GET BACKEND USER
+       ===================================================== */
 
-      const data =
-        await response.json();
+    const fetchBackendUser = async (token) => {
 
-      console.log(
-        "Add to Cart Response:",
-        data
-      );
+        try {
 
-      if (!response.ok) {
-        alert(
-          data.detail ||
-            "Failed to add product to cart"
-        );
+            if (!token) {
+                return null;
+            }
 
-        return;
-      }
 
-      alert(
-        "Product added to cart successfully!"
-      );
-    } catch (error) {
-      console.error(
-        "Add to cart error:",
-        error
-      );
+            const response = await fetch(
+                `${API_URL}/auth/me`,
+                {
+                    method: "GET",
 
-      alert(
-        "Could not connect to backend"
-      );
-    }
-  };
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
 
-  // =========================================================
-  // NOTIFICATION HELPERS
-  // =========================================================
 
-  const getNotificationId = (
-    notification
-  ) => {
-    return (
-      notification.notification_id ??
-      notification.id
-    );
-  };
+            const data = await response.json();
 
-  const getNotificationTitle = (
-    notification
-  ) => {
-    return (
-      notification.title ||
-      notification.subject ||
-      "Notification"
-    );
-  };
 
-  const getNotificationMessage = (
-    notification
-  ) => {
-    return (
-      notification.message ||
-      notification.content ||
-      notification.description ||
-      "You have a new notification."
-    );
-  };
+            if (!response.ok) {
 
-  const isNotificationRead = (
-    notification
-  ) => {
-    return (
-      notification.is_read === true ||
-      notification.read === true ||
-      notification.status === "read"
-    );
-  };
-
-  const unreadCount =
-    notifications.filter(
-      (notification) =>
-        !isNotificationRead(notification)
-    ).length;
-
-  // =========================================================
-  // LOADING
-  // =========================================================
-
-  if (isLoading) {
-    return (
-      <div className="auth-container">
-        <h2>Loading...</h2>
-      </div>
-    );
-  }
-
-  // =========================================================
-  // LOGIN PAGE
-  // =========================================================
-
-  if (!isAuthenticated && !backendToken) {
-    return (
-      <div className="auth-container">
-
-        <div className="auth-card">
-
-          <h1>
-            Smart E-Commerce Platform
-          </h1>
-
-          <p className="subtitle">
-            Login with your account
-          </p>
-
-          {/* Normal Email / Password Login */}
-
-          <input
-            type="email"
-            placeholder="Email"
-            value={loginEmail}
-            onChange={(e) => setLoginEmail(e.target.value)}
-          />
-
-          <input
-            type="password"
-            placeholder="Password"
-            value={loginPassword}
-            onChange={(e) => setLoginPassword(e.target.value)}
-          />
-
-          <button
-            className="login-button"
-            onClick={handleLogin}
-          >
-            Login
-          </button>
-
-          {/* Google Login */}
-
-          <button
-            className="google-button"
-            onClick={handleGoogleLogin}
-          >
-            Continue with Google
-          </button>
-
-          {/* Facebook Login */}
-
-          <button
-            className="facebook-button"
-            onClick={handleFacebookLogin}
-          >
-            Continue with Facebook
-          </button>
-
-        </div>
-
-      </div>
-    );
-  }
-
-  // =========================================================
-  // MAIN PRODUCTS PAGE
-  // =========================================================
-
-  return (
-    <div className="auth-container">
-
-      <div className="auth-card">
-
-        {/* =================================================
-            HEADER
-        ================================================= */}
-
-        <h1>
-          Smart E-Commerce Platform
-        </h1>
-
-        <p className="subtitle">
-          Welcome to your shopping dashboard
-        </p>
-
-        {/* =================================================
-            NOTIFICATIONS - ASSESSMENT 6
-        ================================================= */}
-
-        {backendToken && (
-          <div
-            className="notification-wrapper"
-            ref={notificationRef}
-          >
-
-            <button
-              type="button"
-              className="notification-button"
-              onClick={() => {
-                setNotificationOpen(
-                  (previous) => !previous
+                console.error(
+                    "Failed to get backend user:",
+                    data
                 );
 
-                if (!notificationOpen) {
-                  fetchNotifications(
-                    backendToken
-                  );
-                }
-              }}
-            >
-              <span className="notification-icon">
-                🔔
-              </span>
-
-              {unreadCount > 0 && (
-                <span className="notification-badge">
-                  {unreadCount > 99
-                    ? "99+"
-                    : unreadCount}
-                </span>
-              )}
-            </button>
-
-            {notificationOpen && (
-              <div className="notification-panel">
-
-                <div className="notification-panel-header">
-
-                  <div>
-                    <h3>
-                      Notifications
-                    </h3>
-
-                    <span>
-                      {unreadCount > 0
-                        ? `${unreadCount} unread`
-                        : "No unread notifications"}
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="notification-refresh"
-                    onClick={() =>
-                      fetchNotifications(
-                        backendToken
-                      )
-                    }
-                  >
-                    ↻
-                  </button>
-
-                </div>
-
-                <div className="notification-list">
-
-                  {loadingNotifications ? (
-
-                    <div className="notification-empty">
-                      Loading notifications...
-                    </div>
-
-                  ) : notifications.length === 0 ? (
-
-                    <div className="notification-empty">
-                      No notifications
-                    </div>
-
-                  ) : (
-
-                    notifications.map(
-                      (notification) => {
-
-                        const notificationId =
-                          getNotificationId(
-                            notification
-                          );
-
-                        const read =
-                          isNotificationRead(
-                            notification
-                          );
-
-                        return (
-                          <button
-                            type="button"
-                            key={
-                              notificationId
-                            }
-                            className={`notification-item ${
-                              read
-                                ? "read"
-                                : "unread"
-                            }`}
-                            onClick={() =>
-                              handleNotificationClick(
-                                notification
-                              )
-                            }
-                          >
-
-                            <span
-                              className={`notification-status-dot ${
-                                read
-                                  ? "read"
-                                  : ""
-                              }`}
-                            />
-
-                            <span className="notification-item-content">
-
-                              <span className="notification-title">
-                                {getNotificationTitle(
-                                  notification
-                                )}
-                              </span>
-
-                              <span className="notification-message">
-                                {getNotificationMessage(
-                                  notification
-                                )}
-                              </span>
-
-                              {notification.created_at && (
-                                <span className="notification-time">
-                                  {new Date(
-                                    notification.created_at
-                                  ).toLocaleString()}
-                                </span>
-                              )}
-
-                            </span>
-
-                            {!read && (
-                              <span className="notification-new">
-                                New
-                              </span>
-                            )}
-
-                          </button>
-                        );
-                      }
-                    )
-
-                  )}
-
-                </div>
-
-              </div>
-            )}
-
-          </div>
-        )}
-
-        {/* =================================================
-            USER PROFILE
-        ================================================= */}
-
-        <div className="profile">
-
-          <h2>
-            Welcome!
-          </h2>
-
-          {user?.picture && (
-            <img
-              src={user.picture}
-              alt="Profile"
-              className="profile-image"
-            />
-          )}
-
-          <p>
-            <strong>Name:</strong>{" "}
-            {user?.name ||
-              backendUser?.name ||
-              "Not available"}
-          </p>
-
-          <p>
-            <strong>Email:</strong>{" "}
-            {user?.email ||
-              backendUser?.email ||
-              "Not available"}
-          </p>
-
-          <p>
-            <strong>Auth0 ID:</strong>{" "}
-            {user?.sub ||
-              "Not applicable for email/password login"}
-          </p>
-
-        </div>
-
-        {/* =================================================
-            BACKEND AUTHENTICATION
-        ================================================= */}
-
-        {!backendToken && (
-          <button
-            className="backend-button"
-            onClick={handleBackendLogin}
-          >
-            Authenticate with FastAPI
-          </button>
-        )}
-
-        {/* =================================================
-            VIEW CART
-        ================================================= */}
-
-        {backendToken && (
-          <button
-            className="backend-button"
-            onClick={() =>
-              navigate("/cart")
+                return null;
             }
-          >
-            🛒 View Cart
-          </button>
-        )}
 
-        {/* =================================================
-            LOGOUT
-        ================================================= */}
 
-        <button
-          className="logout-button"
-          onClick={handleLogout}
-        >
-          Logout
-        </button>
+            setBackendUser(data);
 
-        {/* =================================================
-            PRODUCTS
-        ================================================= */}
+            return data;
 
-        <div className="products-section">
+        } catch (error) {
 
-          <h2>
-            Products
-          </h2>
+            console.error(
+                "Backend user error:",
+                error
+            );
 
-          {!backendToken ? (
+            return null;
+        }
+    };
 
-            <p>
-              Authenticate with FastAPI
-              to view products.
-            </p>
 
-          ) : loadingProducts ? (
+    /* =====================================================
+       EMAIL / PASSWORD LOGIN
+       ===================================================== */
 
-            <p>
-              Loading products...
-            </p>
+    const handleLogin = async () => {
 
-          ) : products.length === 0 ? (
+        if (!loginEmail || !loginPassword) {
 
-            <p>
-              No products found.
-            </p>
+            alert(
+                "Please enter email and password"
+            );
 
-          ) : (
+            return;
+        }
 
-            <div className="products-grid">
 
-              {products.map((product) => (
+        try {
 
-                <div
-                  className="product-card"
-                  key={product.id}
-                >
+            const response = await fetch(
+                `${API_URL}/auth/login?email=${encodeURIComponent(
+                    loginEmail
+                )}&password=${encodeURIComponent(
+                    loginPassword
+                )}`,
+                {
+                    method: "POST",
+                }
+            );
 
-                  <h3>
-                    {product.name}
-                  </h3>
 
-                  <p>
-                    {product.description}
-                  </p>
+            const data = await response.json();
 
-                  <p>
-                    <strong>
-                      Price: ₹
-                      {product.price}
-                    </strong>
-                  </p>
 
-                  <p>
-                    Stock:{" "}
-                    {product.stock_quantity}
-                  </p>
+            if (!response.ok) {
 
-                  <button
-                    onClick={() =>
-                      addToCart(
-                        product.id
-                      )
+                alert(
+                    data.detail ||
+                    "Invalid email or password"
+                );
+
+                return;
+            }
+
+
+            /* Save FastAPI JWT */
+
+            setBackendToken(
+                data.access_token
+            );
+
+            localStorage.setItem(
+                "backendToken",
+                data.access_token
+            );
+
+
+            /* Get backend user */
+
+            await fetchBackendUser(
+                data.access_token
+            );
+
+
+            /* Clear login fields */
+
+            setLoginEmail("");
+            setLoginPassword("");
+
+
+        } catch (error) {
+
+            console.error(
+                "Login error:",
+                error
+            );
+
+            alert(
+                "Could not connect to backend"
+            );
+        }
+    };
+
+
+    /* =====================================================
+       GOOGLE LOGIN
+       ===================================================== */
+
+    const handleGoogleLogin = async () => {
+
+        try {
+
+            await loginWithRedirect({
+
+                authorizationParams: {
+
+                    connection:
+                        "google-oauth2",
+
+                    audience:
+                        "https://smart-ecommerce-api",
+
+                    scope:
+                        "openid profile email",
+                },
+
+            });
+
+        } catch (error) {
+
+            console.error(
+                "Google login error:",
+                error
+            );
+        }
+    };
+
+
+    /* =====================================================
+       FACEBOOK LOGIN
+       ===================================================== */
+
+    const handleFacebookLogin = async () => {
+
+        try {
+
+            await loginWithRedirect({
+
+                authorizationParams: {
+
+                    connection:
+                        "facebook",
+
+                    audience:
+                        "https://smart-ecommerce-api",
+
+                    scope:
+                        "openid profile email",
+                },
+
+            });
+
+        } catch (error) {
+
+            console.error(
+                "Facebook login error:",
+                error
+            );
+        }
+    };
+
+
+    /* =====================================================
+       LOGOUT
+       ===================================================== */
+
+    const handleLogout = () => {
+
+        localStorage.removeItem(
+            "backendToken"
+        );
+
+
+        setBackendToken(null);
+
+        setBackendUser(null);
+
+        setProducts([]);
+
+
+        /*
+         * Only logout from Auth0 when
+         * an Auth0 session exists.
+         */
+
+        if (isAuthenticated) {
+
+            logout({
+
+                logoutParams: {
+
+                    returnTo:
+                        window.location.origin,
+                },
+
+            });
+
+        } else {
+
+            navigate("/");
+        }
+    };
+
+
+    /* =====================================================
+       AUTH0 → FASTAPI
+       ===================================================== */
+
+    const authenticateWithBackend = async () => {
+
+        try {
+
+            /*
+             * Get Auth0 access token
+             */
+
+            const auth0Token =
+                await getAccessTokenSilently({
+
+                    authorizationParams: {
+
+                        audience:
+                            "https://smart-ecommerce-api",
+
+                        scope:
+                            "openid profile email",
+                    },
+
+                });
+
+
+            console.log(
+                "Auth0 Access Token received"
+            );
+
+
+            /*
+             * Send Auth0 token to FastAPI
+             */
+
+            const response = await fetch(
+                `${API_URL}/auth/auth0`,
+                {
+                    method: "POST",
+
+                    headers: {
+
+                        Authorization:
+                            `Bearer ${auth0Token}`,
+
+                        "Content-Type":
+                            "application/json",
+                    },
+                }
+            );
+
+
+            const data =
+                await response.json();
+
+
+            console.log(
+                "FastAPI Auth0 Response:",
+                data
+            );
+
+
+            if (!response.ok) {
+
+                alert(
+                    data.detail ||
+                    "Backend authentication failed"
+                );
+
+                return null;
+            }
+
+
+            /*
+             * Save FastAPI JWT
+             */
+
+            setBackendToken(
+                data.access_token
+            );
+
+
+            localStorage.setItem(
+                "backendToken",
+                data.access_token
+            );
+
+
+            console.log(
+                "FastAPI JWT received"
+            );
+
+
+            /*
+             * Get backend user
+             */
+
+            await fetchBackendUser(
+                data.access_token
+            );
+
+
+            return data.access_token;
+
+
+        } catch (error) {
+
+            console.error(
+                "Backend authentication error:",
+                error
+            );
+
+
+            alert(
+                "Could not connect to backend"
+            );
+
+
+            return null;
+        }
+    };
+
+
+    /* =====================================================
+       AUTHENTICATE BUTTON
+       ===================================================== */
+
+    const handleBackendLogin = async () => {
+
+        try {
+
+            /*
+             * If Auth0 is not logged in,
+             * start Auth0 login.
+             */
+
+            if (!isAuthenticated) {
+
+                await loginWithRedirect({
+
+                    authorizationParams: {
+
+                        audience:
+                            "https://smart-ecommerce-api",
+
+                        scope:
+                            "openid profile email",
+                    },
+
+                });
+
+                return;
+            }
+
+
+            /*
+             * Auth0 already logged in.
+             * Authenticate with FastAPI.
+             */
+
+            const token =
+                await authenticateWithBackend();
+
+
+            if (token) {
+
+                alert(
+                    "Successfully authenticated with FastAPI!"
+                );
+            }
+
+
+        } catch (error) {
+
+            console.error(
+                "Authentication error:",
+                error
+            );
+
+
+            alert(
+                "Authentication failed. Please try again."
+            );
+        }
+    };
+
+
+    /* =====================================================
+       FETCH PRODUCTS
+       ===================================================== */
+
+    const fetchProducts = async (token) => {
+
+        try {
+
+            setLoadingProducts(true);
+
+
+            if (!token) {
+
+                console.error(
+                    "No FastAPI token available"
+                );
+
+                setProducts([]);
+
+                return;
+            }
+
+
+            const response = await fetch(
+                `${API_URL}/products/`,
+                {
+                    method: "GET",
+
+                    headers: {
+
+                        Authorization:
+                            `Bearer ${token}`,
+
+                        "Content-Type":
+                            "application/json",
+                    },
+                }
+            );
+
+
+            const data =
+                await response.json();
+
+
+            console.log(
+                "Products API Response:",
+                data
+            );
+
+
+            if (!response.ok) {
+
+                console.error(
+                    "Product fetch failed:",
+                    data
+                );
+
+                setProducts([]);
+
+                return;
+            }
+
+
+            /*
+             * Backend normally returns:
+             *
+             * [
+             *   {...},
+             *   {...}
+             * ]
+             *
+             * Also support:
+             *
+             * {
+             *   products: [...]
+             * }
+             */
+
+            const productList =
+                Array.isArray(data)
+                    ? data
+                    : Array.isArray(data.products)
+                        ? data.products
+                        : [];
+
+
+            console.log(
+                "Products loaded:",
+                productList
+            );
+
+
+            setProducts(
+                productList
+            );
+
+
+        } catch (error) {
+
+            console.error(
+                "Error fetching products:",
+                error
+            );
+
+
+            setProducts([]);
+
+        } finally {
+
+            setLoadingProducts(false);
+        }
+    };
+
+
+    /* =====================================================
+       AUTOMATICALLY LOAD PRODUCTS
+       ===================================================== */
+
+    useEffect(() => {
+
+        if (backendToken) {
+
+            fetchProducts(
+                backendToken
+            );
+        }
+
+    }, [backendToken]);
+
+
+    /* =====================================================
+       AUTOMATICALLY LOAD BACKEND USER
+       ===================================================== */
+
+    useEffect(() => {
+
+        if (backendToken) {
+
+            fetchBackendUser(
+                backendToken
+            );
+        }
+
+    }, [backendToken]);
+
+
+    /* =====================================================
+       ADD PRODUCT TO CART
+       ===================================================== */
+
+    const addToCart = async (productId) => {
+
+        try {
+
+            if (!backendToken) {
+
+                alert(
+                    "Please authenticate with FastAPI first"
+                );
+
+                return;
+            }
+
+
+            /* =================================================
+               STEP 1
+               GET CURRENT USER
+               ================================================= */
+
+            const userResponse =
+                await fetch(
+                    `${API_URL}/auth/me`,
+                    {
+                        method: "GET",
+
+                        headers: {
+
+                            Authorization:
+                                `Bearer ${backendToken}`,
+
+                            "Content-Type":
+                                "application/json",
+                        },
                     }
-                  >
-                    Add to Cart
-                  </button>
+                );
+
+
+            const userData =
+                await userResponse.json();
+
+
+            console.log(
+                "Current User:",
+                userData
+            );
+
+
+            if (!userResponse.ok) {
+
+                alert(
+                    userData.detail ||
+                    "Unable to get current user"
+                );
+
+                return;
+            }
+
+
+            /* =================================================
+               STEP 2
+               ADD PRODUCT TO CART
+               ================================================= */
+
+            const userId =
+                userData.user_id ||
+                userData.id;
+
+
+            const response =
+                await fetch(
+                    `${API_URL}/cart/add?user_id=${userId}&product_id=${productId}&quantity=1`,
+                    {
+                        method: "POST",
+
+                        headers: {
+
+                            Authorization:
+                                `Bearer ${backendToken}`,
+
+                            "Content-Type":
+                                "application/json",
+                        },
+                    }
+                );
+
+
+            const data =
+                await response.json();
+
+
+            console.log(
+                "Add to Cart Response:",
+                data
+            );
+
+
+            if (!response.ok) {
+
+                alert(
+                    data.detail ||
+                    "Failed to add product to cart"
+                );
+
+                return;
+            }
+
+
+            alert(
+                "Product added to cart successfully!"
+            );
+
+
+        } catch (error) {
+
+            console.error(
+                "Add to cart error:",
+                error
+            );
+
+
+            alert(
+                "Could not connect to backend"
+            );
+        }
+    };
+
+
+    /* =====================================================
+       AUTH0 LOADING
+       ===================================================== */
+
+    if (isLoading) {
+
+        return (
+            <div className="loading-page">
+
+                <div className="loading-card">
+
+                    <div className="loading-spinner"></div>
+
+                    <h2>
+                        Loading...
+                    </h2>
+
+                    <p>
+                        Please wait
+                    </p>
 
                 </div>
-
-              ))}
 
             </div>
+        );
+    }
 
-          )}
 
-        </div>
+    /* =====================================================
+       LOGIN PAGE
+       ===================================================== */
 
-      </div>
+    if (
+        !isAuthenticated &&
+        !backendToken
+    ) {
 
-    </div>
-  );
+        return (
+
+            <div className="login-page">
+
+                {/* =================================================
+                    LEFT SIDE
+                ================================================= */}
+
+                <section className="login-brand">
+
+                    <div className="brand-content">
+
+                        <div className="brand-logo">
+                            🛍️
+                        </div>
+
+
+                        <p className="brand-small-title">
+                            SMART SHOPPING PLATFORM
+                        </p>
+
+
+                        <h1>
+                            Smart
+                            <br />
+
+                            <span>
+                                E-Commerce
+                            </span>
+                        </h1>
+
+
+                        <p className="brand-description">
+                            Everything you need for a smarter
+                            and simpler online shopping experience.
+                        </p>
+
+
+                        <div className="brand-features">
+
+                            <div className="feature-item">
+
+                                <div className="feature-icon">
+                                    ✓
+                                </div>
+
+                                <div>
+
+                                    <h3>
+                                        Secure Shopping
+                                    </h3>
+
+                                    <p>
+                                        Safe authentication and
+                                        protected payments.
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+
+                            <div className="feature-item">
+
+                                <div className="feature-icon">
+                                    🚚
+                                </div>
+
+                                <div>
+
+                                    <h3>
+                                        Fast Delivery
+                                    </h3>
+
+                                    <p>
+                                        Track your orders from
+                                        checkout to delivery.
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+
+                            <div className="feature-item">
+
+                                <div className="feature-icon">
+                                    ★
+                                </div>
+
+                                <div>
+
+                                    <h3>
+                                        Quality Products
+                                    </h3>
+
+                                    <p>
+                                        Discover products in one
+                                        convenient platform.
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+                {/* =================================================
+                    RIGHT SIDE
+                ================================================= */}
+
+                <section className="login-section">
+
+                    <div className="login-card">
+
+                        <div className="mobile-brand-logo">
+                            🛍️
+                        </div>
+
+
+                        <div className="login-header">
+
+                            <h2>
+                                Welcome back
+                            </h2>
+
+                            <p>
+                                Sign in to continue to your account
+                            </p>
+
+                        </div>
+
+
+                        {/* EMAIL */}
+
+                        <div className="input-group">
+
+                            <label>
+                                Email address
+                            </label>
+
+                            <input
+                                type="email"
+                                placeholder="Enter your email"
+                                value={loginEmail}
+                                onChange={(event) =>
+                                    setLoginEmail(
+                                        event.target.value
+                                    )
+                                }
+                            />
+
+                        </div>
+
+
+                        {/* PASSWORD */}
+
+                        <div className="input-group">
+
+                            <div className="label-row">
+
+                                <label>
+                                    Password
+                                </label>
+
+                                <button
+                                    type="button"
+                                    className="forgot-button"
+                                    onClick={() =>
+                                        alert(
+                                            "Password reset is not configured yet."
+                                        )
+                                    }
+                                >
+                                    Forgot password?
+                                </button>
+
+                            </div>
+
+
+                            <input
+                                type="password"
+                                placeholder="Enter your password"
+                                value={loginPassword}
+                                onChange={(event) =>
+                                    setLoginPassword(
+                                        event.target.value
+                                    )
+                                }
+                            />
+
+                        </div>
+
+
+                        {/* REMEMBER */}
+
+                        <label className="remember-row">
+
+                            <input
+                                type="checkbox"
+                            />
+
+                            <span>
+                                Remember me
+                            </span>
+
+                        </label>
+
+
+                        {/* SIGN IN */}
+
+                        <button
+                            type="button"
+                            className="login-button"
+                            onClick={handleLogin}
+                        >
+                            Sign In
+                        </button>
+
+
+                        {/* DIVIDER */}
+
+                        <div className="login-divider">
+
+                            <span>
+                                OR CONTINUE WITH
+                            </span>
+
+                        </div>
+
+
+                        {/* GOOGLE */}
+
+                        <button
+                            type="button"
+                            className="social-button google-button"
+                            onClick={handleGoogleLogin}
+                        >
+
+                            <span className="google-icon">
+                                G
+                            </span>
+
+                            <span>
+                                Continue with Google
+                            </span>
+
+                        </button>
+
+
+                        {/* FACEBOOK */}
+
+                        <button
+                            type="button"
+                            className="social-button facebook-button"
+                            onClick={handleFacebookLogin}
+                        >
+
+                            <span className="facebook-icon">
+                                f
+                            </span>
+
+                            <span>
+                                Continue with Facebook
+                            </span>
+
+                        </button>
+
+
+                        {/* SECURITY */}
+
+                        <p className="login-security">
+                            🔒 Your account is protected with
+                            secure authentication
+                        </p>
+
+                    </div>
+
+                </section>
+
+            </div>
+        );
+    }
+
+
+    /* =====================================================
+       MAIN HOME
+       ===================================================== */
+
+    return (
+
+        <Home
+
+            user={user}
+
+            backendUser={
+                backendUser
+            }
+
+            backendToken={
+                backendToken
+            }
+
+            products={
+                products
+            }
+
+            loadingProducts={
+                loadingProducts
+            }
+
+            addToCart={
+                addToCart
+            }
+
+            onBackendLogin={
+                handleBackendLogin
+            }
+
+            onViewCart={() =>
+                navigate("/cart")
+            }
+
+            onLogout={
+                handleLogout
+            }
+
+        />
+    );
 }
 
-// =========================================================
-// APPLICATION ROUTER
-// =========================================================
+
+/* =========================================================
+   APPLICATION ROUTER
+   ========================================================= */
 
 function App() {
-  return (
-    <BrowserRouter>
 
-      <Routes>
+    return (
 
-        {/* Home / Products */}
+        <BrowserRouter>
 
-        <Route
-          path="/"
-          element={<Home />}
-        />
+            <Routes>
 
-        {/* Separate Cart Page */}
+                {/* =================================================
+                    HOME
+                ================================================= */}
 
-        <Route
-          path="/cart"
-          element={<Cart />}
-        />
+                <Route
+                    path="/"
+                    element={
+                        <HomeContainer />
+                    }
+                />
 
-      </Routes>
 
-    </BrowserRouter>
-  );
+                {/* =================================================
+                    CART
+                ================================================= */}
+
+                <Route
+                    path="/cart"
+                    element={
+                        <CartPage />
+                    }
+                />
+
+
+                {/* =================================================
+                    ORDERS
+                ================================================= */}
+
+                <Route
+                    path="/orders"
+                    element={
+                        <OrdersPage
+                            token={
+                                localStorage.getItem(
+                                    "backendToken"
+                                )
+                            }
+                        />
+                    }
+                />
+
+            </Routes>
+
+        </BrowserRouter>
+    );
 }
+
 
 export default App;

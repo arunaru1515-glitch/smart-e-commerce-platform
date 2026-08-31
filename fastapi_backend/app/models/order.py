@@ -11,12 +11,17 @@ class OrderStatus(str, Enum):
     SHIPPED = "shipped"
     DELIVERED = "delivered"
     CANCELLED = "cancelled"
+    RETURN_REQUESTED = "return_requested"
 
 
 class Order(Base):
     __tablename__ = "orders"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
 
     user = Column(
         Integer,
@@ -50,4 +55,9 @@ class Order(Base):
         DateTime,
         default=datetime.utcnow,
         nullable=False
+    )
+
+    delivered_at = Column(
+        DateTime,
+        nullable=True
     )
