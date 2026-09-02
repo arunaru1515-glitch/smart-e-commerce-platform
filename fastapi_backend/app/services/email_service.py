@@ -26,22 +26,19 @@ def send_email(
     total_amount=None
 ):
     """
-    Send order status email to customer.
+    Send order, return, and refund status email.
 
     Supported statuses:
         paid
         shipped
         delivered
         cancelled
+        return_approved
+        return_rejected
+        refund_completed
 
-    Product format:
-    [
-        {
-            "name": "Headphones",
-            "quantity": 1,
-            "unit_price": 3500
-        }
-    ]
+    Email failures are handled safely so that
+    the main API request is not blocked indefinitely.
     """
 
     # =====================================================
@@ -68,26 +65,27 @@ def send_email(
         "SMTP_PASSWORD"
     )
 
-
     # =====================================================
     # VALIDATION
     # =====================================================
 
     if not sender_email:
-        raise Exception(
-            "SMTP_USERNAME is missing in .env"
+        print(
+            "Email sending failed: SMTP_USERNAME is missing in .env"
         )
+        return False
 
     if not sender_password:
-        raise Exception(
-            "SMTP_PASSWORD is missing in .env"
+        print(
+            "Email sending failed: SMTP_PASSWORD is missing in .env"
         )
+        return False
 
     if not to_email:
-        raise Exception(
-            "Customer email is missing"
+        print(
+            "Email sending failed: Customer email is missing"
         )
-
+        return False
 
     # =====================================================
     # DEFAULT VALUES
@@ -99,13 +97,11 @@ def send_email(
     if total_amount is None:
         total_amount = Decimal("0")
 
-
     # =====================================================
     # NORMALIZE STATUS
     # =====================================================
 
     status = str(status).lower().strip()
-
 
     # =====================================================
     # STATUS-SPECIFIC EMAIL CONTENT
@@ -123,16 +119,13 @@ def send_email(
         )
 
         status_title = "PAYMENT CONFIRMED"
-
         status_label = "Payment Status"
-
         status_value = "PAID"
 
         final_message = (
             "Your payment has been securely processed "
             "and your order has been confirmed."
         )
-
 
     elif status == "shipped":
 
@@ -146,9 +139,7 @@ def send_email(
         )
 
         status_title = "ORDER SHIPPED"
-
         status_label = "Order Status"
-
         status_value = "SHIPPED"
 
         final_message = (
@@ -156,7 +147,6 @@ def send_email(
             "You will receive another notification "
             "when your order is delivered."
         )
-
 
     elif status == "delivered":
 
@@ -170,16 +160,13 @@ def send_email(
         )
 
         status_title = "ORDER DELIVERED"
-
         status_label = "Order Status"
-
         status_value = "DELIVERED"
 
         final_message = (
             "We hope you enjoy your purchase. "
             "Thank you for shopping with us."
         )
-
 
     elif status == "cancelled":
 
@@ -193,9 +180,7 @@ def send_email(
         )
 
         status_title = "ORDER CANCELLED"
-
         status_label = "Order Status"
-
         status_value = "CANCELLED"
 
         final_message = (
@@ -203,6 +188,82 @@ def send_email(
             "in error, please contact our support team."
         )
 
+    # =====================================================
+    # RETURN APPROVED
+    # =====================================================
+
+    elif status == "return_approved":
+
+        subject = (
+            f"Return Approved - Order #{order_id}"
+        )
+
+        greeting_message = (
+            f"Your return request for Order #{order_id} "
+            f"has been approved."
+        )
+
+        status_title = "RETURN APPROVED"
+        status_label = "Return Status"
+        status_value = "APPROVED"
+
+        final_message = (
+            "Your returned products have been accepted "
+            "and the refund process has been initiated."
+        )
+
+    # =====================================================
+    # RETURN REJECTED
+    # =====================================================
+
+    elif status == "return_rejected":
+
+        subject = (
+            f"Return Rejected - Order #{order_id}"
+        )
+
+        greeting_message = (
+            f"Your return request for Order #{order_id} "
+            f"has been rejected."
+        )
+
+        status_title = "RETURN REJECTED"
+        status_label = "Return Status"
+        status_value = "REJECTED"
+
+        final_message = (
+            "Your return request could not be approved. "
+            "Please contact our support team if you need "
+            "further assistance."
+        )
+
+    # =====================================================
+    # REFUND COMPLETED
+    # =====================================================
+
+    elif status == "refund_completed":
+
+        subject = (
+            f"Refund Completed - Order #{order_id}"
+        )
+
+        greeting_message = (
+            f"Your refund for Order #{order_id} "
+            f"has been successfully completed."
+        )
+
+        status_title = "REFUND COMPLETED"
+        status_label = "Refund Status"
+        status_value = "REFUNDED"
+
+        final_message = (
+            "The refund has been successfully processed "
+            "through your payment method."
+        )
+
+    # =====================================================
+    # DEFAULT
+    # =====================================================
 
     else:
 
@@ -216,9 +277,7 @@ def send_email(
         )
 
         status_title = "ORDER STATUS UPDATE"
-
         status_label = "Order Status"
-
         status_value = status.upper()
 
         final_message = (
@@ -226,13 +285,11 @@ def send_email(
             "Smart E-Commerce Platform."
         )
 
-
     # =====================================================
     # FORMAT PRODUCT DETAILS
     # =====================================================
 
     product_lines = []
-
 
     for index, product in enumerate(
         products,
@@ -242,11 +299,6 @@ def send_email(
         if not isinstance(product, dict):
             continue
 
-
-        # -------------------------------------------------
-        # PRODUCT NAME
-        # -------------------------------------------------
-
         product_name = (
             product.get("name")
             or product.get("product_name")
@@ -255,21 +307,11 @@ def send_email(
             or "Product"
         )
 
-
-        # -------------------------------------------------
-        # QUANTITY
-        # -------------------------------------------------
-
         quantity = (
             product.get("quantity")
             or product.get("qty")
             or 1
         )
-
-
-        # -------------------------------------------------
-        # UNIT PRICE
-        # -------------------------------------------------
 
         unit_price = (
             product.get("unit_price")
@@ -277,14 +319,8 @@ def send_email(
             else product.get("price")
         )
 
-
         if unit_price is None:
             unit_price = 0
-
-
-        # -------------------------------------------------
-        # CALCULATE ITEM TOTAL
-        # -------------------------------------------------
 
         try:
 
@@ -304,13 +340,7 @@ def send_email(
         except Exception:
 
             unit_price_decimal = Decimal("0")
-
             item_total = Decimal("0")
-
-
-        # -------------------------------------------------
-        # PRODUCT DETAILS
-        # -------------------------------------------------
 
         product_lines.append(
             f"{index}. {product_name}\n"
@@ -318,7 +348,6 @@ def send_email(
             f"   Unit Price : ₹{unit_price_decimal:,.2f}\n"
             f"   Item Total : ₹{item_total:,.2f}"
         )
-
 
     if product_lines:
 
@@ -331,7 +360,6 @@ def send_email(
         products_text = (
             "Product details are not available."
         )
-
 
     # =====================================================
     # FORMAT TOTAL
@@ -352,7 +380,6 @@ def send_email(
         total_text = (
             f"₹{total_amount}"
         )
-
 
     # =====================================================
     # EMAIL BODY
@@ -394,7 +421,6 @@ Regards,
 Smart E-Commerce Platform
 """
 
-
     # =====================================================
     # CREATE EMAIL
     # =====================================================
@@ -402,15 +428,12 @@ Smart E-Commerce Platform
     email = EmailMessage()
 
     email["From"] = sender_email
-
     email["To"] = to_email
-
     email["Subject"] = subject
 
     email.set_content(
         message
     )
-
 
     # =====================================================
     # SEND EMAIL
@@ -419,14 +442,15 @@ Smart E-Commerce Platform
     try:
 
         # -------------------------------------------------
-        # SSL
+        # SSL - PORT 465
         # -------------------------------------------------
 
         if smtp_port == 465:
 
             with smtplib.SMTP_SSL(
                 smtp_host,
-                smtp_port
+                smtp_port,
+                timeout=10
             ) as smtp:
 
                 smtp.login(
@@ -438,16 +462,16 @@ Smart E-Commerce Platform
                     email
                 )
 
-
         # -------------------------------------------------
-        # STARTTLS
+        # STARTTLS - PORT 587
         # -------------------------------------------------
 
         else:
 
             with smtplib.SMTP(
                 smtp_host,
-                smtp_port
+                smtp_port,
+                timeout=10
             ) as smtp:
 
                 smtp.ehlo()
@@ -465,21 +489,27 @@ Smart E-Commerce Platform
                     email
                 )
 
-
         print(
             f"Email sent successfully to {to_email}"
         )
 
         return True
 
-
     except Exception as e:
+
+        # -------------------------------------------------
+        # IMPORTANT:
+        # Do not raise the email exception.
+        #
+        # This prevents SMTP problems from keeping
+        # the Swagger/API request stuck.
+        # -------------------------------------------------
 
         print(
             f"Email sending failed: {str(e)}"
         )
 
-        raise
+        return False
 
 
 # =========================================================

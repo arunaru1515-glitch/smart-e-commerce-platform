@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -78,6 +78,7 @@ async def get_my_orders(
 async def update_order_status(
     order_id: int,
     status: str,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -270,39 +271,29 @@ async def update_order_status(
 
 
     # =====================================================
-    # 11. SEND EMAIL FOR ORDER STATUS UPDATE
+    # 11. SEND EMAIL IN BACKGROUND
     # =====================================================
 
-    email_sent = False
+    email_scheduled = False
 
 
     if customer and customer.email:
 
-        try:
+        background_tasks.add_task(
+            send_order_status_email,
+            to_email=customer.email,
+            order_id=order.id,
+            status=status,
+            products=order.products,
+            total_amount=order.total
+        )
 
-            send_order_status_email(
-                to_email=customer.email,
-                order_id=order.id,
-                status=status,
-                products=order.products,
-                total_amount=order.total
-            )
+        email_scheduled = True
 
-            email_sent = True
-
-            print(
-                f"{status.upper()} email sent "
-                f"for Order #{order.id}"
-            )
-
-        except Exception as e:
-
-            # Email failure should not undo
-            # the already successful order update.
-
-            print(
-                f"Order status email failed: {str(e)}"
-            )
+        print(
+            f"{status.upper()} email scheduled "
+            f"for Order #{order.id}"
+        )
 
 
     # =====================================================
@@ -333,7 +324,7 @@ async def update_order_status(
             if notification
             else None
         ),
-        "email_sent": email_sent
+        "email_scheduled": email_scheduled
     }
 
 

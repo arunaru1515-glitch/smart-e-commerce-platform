@@ -61,3 +61,42 @@ def create_payment_intent(
     )
 
     return payment_intent
+
+
+# =========================================================
+# CREATE STRIPE REFUND
+# =========================================================
+
+def create_refund(
+    payment_intent_id: str,
+    amount: Decimal
+):
+    """
+    Create a Stripe refund for a PaymentIntent.
+
+    Stripe expects the refund amount in the
+    smallest currency unit. For INR, this means paise.
+    """
+
+    if not payment_intent_id:
+        raise ValueError(
+            "Stripe PaymentIntent ID is missing"
+        )
+
+    amount_decimal = Decimal(str(amount))
+
+    if amount_decimal <= Decimal("0.00"):
+        raise ValueError(
+            "Refund amount must be greater than zero"
+        )
+
+    amount_in_paise = int(
+        amount_decimal * 100
+    )
+
+    refund = stripe.Refund.create(
+        payment_intent=payment_intent_id,
+        amount=amount_in_paise
+    )
+
+    return refund

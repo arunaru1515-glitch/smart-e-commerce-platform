@@ -274,3 +274,39 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Notification #{self.id}"
+
+
+# ============================================================
+# RETURN REQUEST
+# Existing FastAPI table: return_requests
+# ============================================================
+
+class ReturnRequest(models.Model):
+    id = models.IntegerField(
+        primary_key=True
+    )
+
+    order_id = models.IntegerField()
+
+    user_id = models.IntegerField()
+
+    reason = models.CharField(
+        max_length=255
+    )
+
+    status = models.CharField(
+        max_length=50,
+        default="pending"
+    )
+
+    created_at = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    class Meta:
+        managed = False
+        db_table = "return_requests"
+
+    def __str__(self):
+        return f"Return Request #{self.id} - Order #{self.order_id}"

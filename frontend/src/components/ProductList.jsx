@@ -9,38 +9,21 @@ function ProductList({
 }) {
 
     // =========================================================
-    // PRODUCT IMAGE MAPPING
+    // PRODUCT IMAGE
     // =========================================================
 
     const getProductImage = (product) => {
-        const name = (product.name || "").toLowerCase();
-
-        // Laptop
-        if (name.includes("laptop")) {
-            return "/images/laptop_img.jpg";
+        if (!product.images) {
+            return null;
         }
 
-        // Smartphone / Samsung / Galaxy / Fold
-        if (
-            name.includes("smartphone") ||
-            name.includes("samsung") ||
-            name.includes("galaxy") ||
-            name.includes("fold")
-        ) {
-            return "/images/smartphone_img.jpg";
+        // If backend already gives a full URL
+        if (product.images.startsWith("http")) {
+            return product.images;
         }
 
-        // Headphones
-        if (name.includes("headphone")) {
-            return "/images/headphones_img.jpg";
-        }
-
-        // Mobile
-        if (name.includes("mobile")) {
-            return "/images/mobile_img.jpg";
-        }
-
-        return null;
+        // Load product images from Django media
+        return `http://127.0.0.1:8001/media/${product.images}`;
     };
 
 
@@ -66,7 +49,6 @@ function ProductList({
                         </p>
                     </div>
                 </div>
-
 
                 <div className="products-empty">
 
@@ -112,7 +94,6 @@ function ProductList({
                     </div>
                 </div>
 
-
                 <div className="products-loading">
 
                     <div className="loading-spinner"></div>
@@ -155,13 +136,11 @@ function ProductList({
 
                     </div>
 
-
                     <span className="product-count">
                         0 Products
                     </span>
 
                 </div>
-
 
                 <div className="products-empty">
 
@@ -209,7 +188,6 @@ function ProductList({
                     </p>
 
                 </div>
-
 
                 <div className="product-count">
                     {products.length}{" "}
@@ -259,20 +237,10 @@ function ProductList({
                                             product.name ||
                                             "Product"
                                         }
-                                    />
-
-                                ) : product.images ? (
-
-                                    <img
-                                        src={
-                                            product.images.startsWith("/")
-                                                ? product.images
-                                                : `/images/${product.images}`
-                                        }
-                                        alt={
-                                            product.name ||
-                                            "Product"
-                                        }
+                                        onError={(event) => {
+                                            event.currentTarget.style.display =
+                                                "none";
+                                        }}
                                     />
 
                                 ) : (
@@ -300,7 +268,6 @@ function ProductList({
                                         {product.category ||
                                             "General"}
                                     </span>
-
 
                                     {product.popularity !==
                                         undefined && (
