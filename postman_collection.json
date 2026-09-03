@@ -1,13 +1,26 @@
 {
   "info": {
+    "_postman_id": "smart-ecommerce-platform-complete-2026",
     "name": "Smart E-Commerce Platform - Complete API Collection",
-    "description": "Complete Postman collection for the Smart E-Commerce Platform API. Covers health/version, authentication, Auth0 integration, product CRUD, cart operations, checkout/Stripe payment intent, notifications, and Stripe webhook.",
+    "description": "Complete Postman collection matched against the current FastAPI backend. Covers root, authentication, Auth0, products and filters, cart, checkout/payment intent, notifications, orders, customer returns, Assessment 9 admin returns, Stripe webhook, and WebSocket.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     {
       "key": "base_url",
       "value": "http://127.0.0.1:8000"
+    },
+    {
+      "key": "test_email",
+      "value": ""
+    },
+    {
+      "key": "test_password",
+      "value": "Test@123"
+    },
+    {
+      "key": "user_id",
+      "value": ""
     },
     {
       "key": "access_token",
@@ -18,47 +31,51 @@
       "value": ""
     },
     {
-      "key": "auth0_token",
+      "key": "admin_email",
+      "value": "admin@test.com"
+    },
+    {
+      "key": "admin_password",
+      "value": "Admin@12345"
+    },
+    {
+      "key": "admin_user_id",
       "value": ""
     },
     {
-      "key": "user_id",
-      "value": "2"
+      "key": "admin_access_token",
+      "value": ""
     },
     {
       "key": "product_id",
-      "value": "1"
+      "value": ""
     },
     {
-      "key": "cart_id",
-      "value": "1"
+      "key": "category",
+      "value": "Electronics"
+    },
+    {
+      "key": "cart_item_id",
+      "value": ""
+    },
+    {
+      "key": "notification_id",
+      "value": ""
     },
     {
       "key": "order_id",
       "value": ""
     },
     {
-      "key": "payment_id",
+      "key": "return_id",
       "value": ""
     },
     {
-      "key": "stripe_payment_intent_id",
+      "key": "auth0_token",
       "value": ""
-    },
-    {
-      "key": "client_secret",
-      "value": ""
-    },
-    {
-      "key": "notification_id",
-      "value": "1"
     },
     {
       "key": "stripe_signature",
-      "value": ""
-    },
-    {
-      "key": "timestamp",
       "value": ""
     }
   ],
@@ -67,38 +84,20 @@
       "name": "System",
       "item": [
         {
-          "name": "Health Check",
+          "name": "Root",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/health",
+              "raw": "{{base_url}}/",
               "host": [
                 "{{base_url}}"
               ],
-              "path": [
-                "health"
-              ]
+              "path": []
             },
-            "description": "Verify that the FastAPI application is running."
-          }
-        },
-        {
-          "name": "API Version",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/version",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "version"
-              ]
-            },
-            "description": "Verify the application version endpoint."
-          }
+            "description": "Root endpoint implemented in app/main.py."
+          },
+          "response": []
         }
       ]
     },
@@ -106,12 +105,12 @@
       "name": "Authentication",
       "item": [
         {
-          "name": "Register",
+          "name": "Register Customer",
           "request": {
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/auth/register?name=Test User&email=testuser_{{timestamp}}@gmail.com&password=Test@123",
+              "raw": "{{base_url}}/auth/register",
               "host": [
                 "{{base_url}}"
               ],
@@ -126,24 +125,50 @@
                 },
                 {
                   "key": "email",
-                  "value": "testuser_{{timestamp}}@gmail.com"
+                  "value": "{{test_email}}"
                 },
                 {
                   "key": "password",
-                  "value": "Test@123"
+                  "value": "{{test_password}}"
                 }
               ]
             },
-            "description": "Create a customer account using the existing registration API."
-          }
+            "description": "Creates a customer. The pre-request script creates a unique email for this run."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const email = 'testuser_' + Date.now() + '@gmail.com';",
+                  "pm.collectionVariables.set('test_email', email);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.expect(pm.response.code).to.be.oneOf([200,201]); });",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const j = pm.response.json();",
+                  "  if (j.user_id !== undefined) pm.collectionVariables.set('user_id', j.user_id);",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
         {
-          "name": "Login",
+          "name": "Login Customer",
           "request": {
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/auth/login?email=testuser@gmail.com&password=Test@123",
+              "raw": "{{base_url}}/auth/login",
               "host": [
                 "{{base_url}}"
               ],
@@ -154,26 +179,26 @@
               "query": [
                 {
                   "key": "email",
-                  "value": "testuser@gmail.com"
+                  "value": "{{test_email}}"
                 },
                 {
                   "key": "password",
-                  "value": "Test@123"
+                  "value": "{{test_password}}"
                 }
               ]
             }
           },
+          "response": [],
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "const data = pm.response.json();",
-                  "if (data.access_token) pm.collectionVariables.set('access_token', data.access_token);",
-                  "if (data.refresh_token) pm.collectionVariables.set('refresh_token', data.refresh_token);",
-                  "if (data.user_id) pm.collectionVariables.set('user_id', String(data.user_id));",
-                  "console.log('Login tokens saved to collection variables.');"
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('access_token', j.access_token);",
+                  "pm.collectionVariables.set('refresh_token', j.refresh_token);"
                 ]
               }
             }
@@ -185,33 +210,46 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/auth/me?key=value",
+              "raw": "{{base_url}}/auth/me",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "auth",
                 "me"
-              ],
-              "query": [
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
                 {
-                  "key": "key",
-                  "value": "value"
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
                 }
               ]
             }
-          }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "if (j.user_id !== undefined) pm.collectionVariables.set('user_id', j.user_id);"
+                ]
+              }
+            }
+          ]
         },
         {
-          "name": "Refresh Token",
+          "name": "Refresh Access Token",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{refresh_token}}"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}/auth/refresh",
               "host": [
@@ -221,16 +259,29 @@
                 "auth",
                 "refresh"
               ]
-            }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{refresh_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Important: this endpoint expects the refresh token in the Authorization Bearer header."
           },
+          "response": [],
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "const data = pm.response.json();",
-                  "if (data.access_token) pm.collectionVariables.set('access_token', data.access_token);"
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('access_token', j.access_token);"
                 ]
               }
             }
@@ -240,16 +291,7 @@
           "name": "Auth0 Login",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{auth0_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}/auth/auth0",
               "host": [
@@ -260,16 +302,68 @@
                 "auth0"
               ]
             },
-            "description": "Exchange the Auth0 bearer token through the FastAPI Auth0 endpoint."
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{auth0_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Paste a valid Auth0 access/ID token into the auth0_token collection variable before sending."
           },
+          "response": [],
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "const data = pm.response.json();",
-                  "if (data.access_token) pm.collectionVariables.set('access_token', data.access_token);"
+                  "pm.test('Response is not a server error', function () { pm.expect(pm.response.code).to.be.below(500); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Admin",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ],
+              "query": [
+                {
+                  "key": "email",
+                  "value": "{{admin_email}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{admin_password}}"
+                }
+              ]
+            },
+            "description": "Uses the admin credentials shown in your current setup. Change the collection variables if your admin credentials are different."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('admin_access_token', j.access_token);"
                 ]
               }
             }
@@ -284,12 +378,7 @@
           "name": "Get All Products",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}/products/",
               "host": [
@@ -298,19 +387,104 @@
               "path": [
                 "products"
               ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
             }
-          }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Products - Filtered",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "{{category}}"
+                },
+                {
+                  "key": "min_price",
+                  "value": "0"
+                },
+                {
+                  "key": "max_price",
+                  "value": "100000"
+                },
+                {
+                  "key": "min_popularity",
+                  "value": "0"
+                },
+                {
+                  "key": "in_stock",
+                  "value": "true"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "All filters supported by the current product router."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Products By Category",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/products/category/{{category}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "category",
+                "{{category}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
         },
         {
           "name": "Get Single Product",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}/products/{{product_id}}",
               "host": [
@@ -320,21 +494,27 @@
                 "products",
                 "{{product_id}}"
               ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "Create Product - Admin",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
+            "header": [],
             "url": {
-              "raw": "{{base_url}}/products/?name=Laptop Pro&description=Smart E-Commerce Laptop&price=50000&stock_quantity=20&category=Electronics&images=",
+              "raw": "{{base_url}}/products/",
               "host": [
                 "{{base_url}}"
               ],
@@ -355,7 +535,7 @@
                   "value": "50000"
                 },
                 {
-                  "key": "stock_quantity",
+                  "key": "stock",
                   "value": "20"
                 },
                 {
@@ -363,25 +543,49 @@
                   "value": "Electronics"
                 },
                 {
+                  "key": "popularity",
+                  "value": "10"
+                },
+                {
                   "key": "images",
                   "value": ""
                 }
               ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Uses the backend parameter name 'stock' (not stock_quantity)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "if (j.product && j.product.id !== undefined) pm.collectionVariables.set('product_id', j.product.id);"
+                ]
+              }
             }
-          }
+          ]
         },
         {
           "name": "Update Product - Admin",
           "request": {
             "method": "PUT",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
+            "header": [],
             "url": {
-              "raw": "{{base_url}}/products/{{product_id}}?name=Updated Laptop Pro&description=Updated Smart Laptop&price=55000&stock_quantity=15&category=Electronics&images=",
+              "raw": "{{base_url}}/products/{{product_id}}",
               "host": [
                 "{{base_url}}"
               ],
@@ -403,7 +607,7 @@
                   "value": "55000"
                 },
                 {
-                  "key": "stock_quantity",
+                  "key": "stock",
                   "value": "15"
                 },
                 {
@@ -411,23 +615,34 @@
                   "value": "Electronics"
                 },
                 {
+                  "key": "popularity",
+                  "value": "15"
+                },
+                {
                   "key": "images",
                   "value": ""
                 }
               ]
-            }
-          }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Uses the backend parameter name 'stock' (not stock_quantity)."
+          },
+          "response": []
         },
         {
           "name": "Delete Product - Admin",
           "request": {
             "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}/products/{{product_id}}",
               "host": [
@@ -437,8 +652,19 @@
                 "products",
                 "{{product_id}}"
               ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_access_token}}",
+                  "type": "string"
+                }
+              ]
             }
-          }
+          },
+          "response": []
         }
       ]
     },
@@ -449,18 +675,9 @@
           "name": "Add To Cart",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [],
             "url": {
-              "raw": "{{base_url}}/cart/add?user_id={{user_id}}&product_id={{product_id}}&quantity=1",
+              "raw": "{{base_url}}/cart/add",
               "host": [
                 "{{base_url}}"
               ],
@@ -470,10 +687,6 @@
               ],
               "query": [
                 {
-                  "key": "user_id",
-                  "value": "{{user_id}}"
-                },
-                {
                   "key": "product_id",
                   "value": "{{product_id}}"
                 },
@@ -482,52 +695,81 @@
                   "value": "1"
                 }
               ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "user_id is NOT sent because the backend gets the user from the JWT."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is successful', function () { pm.expect(pm.response.code).to.be.oneOf([200,201]); });",
+                  "const j = pm.response.json();",
+                  "if (j.cart_item_id !== undefined) pm.collectionVariables.set('cart_item_id', j.cart_item_id);"
+                ]
+              }
             }
-          }
+          ]
         },
         {
           "name": "Get Cart",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
+            "header": [],
             "url": {
-              "raw": "{{base_url}}/cart/?user_id={{user_id}}",
+              "raw": "{{base_url}}/cart/",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "cart"
-              ],
-              "query": [
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
                 {
-                  "key": "user_id",
-                  "value": "{{user_id}}"
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
                 }
               ]
             }
-          }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "if (j.items && j.items.length > 0) pm.collectionVariables.set('cart_item_id', j.items[0].cart_item_id);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Update Cart Quantity",
           "request": {
             "method": "PUT",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [],
             "url": {
-              "raw": "{{base_url}}/cart/update?cart_item_id={{cart_id}}&quantity=2",
+              "raw": "{{base_url}}/cart/update",
               "host": [
                 "{{base_url}}"
               ],
@@ -538,28 +780,34 @@
               "query": [
                 {
                   "key": "cart_item_id",
-                  "value": "{{cart_id}}"
+                  "value": "{{cart_item_id}}"
                 },
                 {
                   "key": "quantity",
                   "value": "2"
                 }
               ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "Remove From Cart",
           "request": {
             "method": "DELETE",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
+            "header": [],
             "url": {
-              "raw": "{{base_url}}/cart/remove?cart_item_id={{cart_id}}",
+              "raw": "{{base_url}}/cart/remove",
               "host": [
                 "{{base_url}}"
               ],
@@ -570,11 +818,22 @@
               "query": [
                 {
                   "key": "cart_item_id",
-                  "value": "{{cart_id}}"
+                  "value": "{{cart_item_id}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
                 }
               ]
             }
-          }
+          },
+          "response": []
         }
       ]
     },
@@ -585,49 +844,29 @@
           "name": "Create Checkout + Payment Intent",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [],
             "url": {
-              "raw": "{{base_url}}/checkout/?user_id={{user_id}}",
+              "raw": "{{base_url}}/checkout/",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "checkout"
-              ],
-              "query": [
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
                 {
-                  "key": "user_id",
-                  "value": "{{user_id}}"
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
                 }
               ]
             },
-            "description": "Creates the order and Stripe PaymentIntent from the user's cart."
+            "description": "Checkout uses the authenticated user's cart. Do not send user_id."
           },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const data = pm.response.json();",
-                  "if (data.order_id) pm.collectionVariables.set('order_id', String(data.order_id));",
-                  "if (data.payment_id) pm.collectionVariables.set('payment_id', String(data.payment_id));",
-                  "if (data.stripe_payment_intent_id) pm.collectionVariables.set('stripe_payment_intent_id', data.stripe_payment_intent_id);",
-                  "if (data.client_secret) pm.collectionVariables.set('client_secret', data.client_secret);",
-                  "console.log('Checkout and Stripe PaymentIntent data saved.');"
-                ]
-              }
-            }
-          ]
+          "response": []
         }
       ]
     },
@@ -638,12 +877,7 @@
           "name": "Get Notifications",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{base_url}}/notifications/",
               "host": [
@@ -652,25 +886,40 @@
               "path": [
                 "notifications"
               ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
             }
-          }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "if (Array.isArray(j) && j.length > 0 && j[0].id !== undefined) pm.collectionVariables.set('notification_id', j[0].id);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Mark Notification As Read",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [],
             "url": {
-              "raw": "{{base_url}}/notifications/read?notification_id={{notification_id}}",
+              "raw": "{{base_url}}/notifications/read",
               "host": [
                 "{{base_url}}"
               ],
@@ -684,8 +933,262 @@
                   "value": "{{notification_id}}"
                 }
               ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
             }
-          }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "Get My Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/orders/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "if (Array.isArray(j) && j.length > 0 && j[0].id !== undefined) pm.collectionVariables.set('order_id', j[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Order Status - Admin",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/orders/{{order_id}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{order_id}}",
+                "status"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "shipped"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Admin-only. Allowed values in the backend: paid, shipped, delivered, cancelled."
+          },
+          "response": []
+        },
+        {
+          "name": "Request Return",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/orders/{{order_id}}/return",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{order_id}}",
+                "return"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Product damaged\",\n  \"comment\": \"The product arrived damaged.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Works only for a delivered order within the backend's 7-day return window."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response is not a server error', function () { pm.expect(pm.response.code).to.be.below(500); });",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) { const j = pm.response.json(); if (j.return_id !== undefined) pm.collectionVariables.set('return_id', j.return_id); }"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin Returns - Assessment 9",
+      "item": [
+        {
+          "name": "Get All Return Requests - Admin",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/returns",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "returns"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "const j = pm.response.json();",
+                  "if (Array.isArray(j) && j.length > 0 && j[0].id !== undefined) pm.collectionVariables.set('return_id', j[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Approve Return - Admin",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/returns/{{return_id}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "returns",
+                "{{return_id}}",
+                "approve"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reject Return - Admin",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/returns/{{return_id}}/reject",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "returns",
+                "{{return_id}}",
+                "reject"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
         }
       ]
     },
@@ -702,7 +1205,7 @@
                 "value": "application/json"
               },
               {
-                "key": "Stripe-Signature",
+                "key": "stripe-signature",
                 "value": "{{stripe_signature}}"
               }
             ],
@@ -716,30 +1219,46 @@
                 "stripe"
               ]
             },
-            "description": "Webhook request template. Use a real Stripe event payload/signature when testing webhook verification.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"checkout.session.completed\",\n  \"data\": {\n    \"object\": {}\n  }\n}",
+              "raw": "{}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
-            }
-          }
+            },
+            "description": "The backend requires a valid Stripe-Signature generated by Stripe/Stripe CLI. A random signature will correctly fail verification."
+          },
+          "response": []
         }
       ]
-    }
-  ],
-  "event": [
+    },
     {
-      "listen": "prerequest",
-      "script": {
-        "type": "text/javascript",
-        "exec": [
-          "pm.collectionVariables.set('timestamp', Date.now().toString());"
-        ]
-      }
+      "name": "WebSocket",
+      "item": [
+        {
+          "name": "Connect User WebSocket",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "ws://127.0.0.1:8000/ws/{{user_id}}",
+              "protocol": "ws",
+              "host": [
+                "127.0.0.1"
+              ],
+              "port": "8000",
+              "path": [
+                "ws",
+                "{{user_id}}"
+              ]
+            },
+            "description": "WebSocket endpoint implemented by the backend: /ws/{user_id}. Use Postman's WebSocket request type to connect."
+          },
+          "response": []
+        }
+      ]
     }
   ]
 }
